@@ -917,7 +917,7 @@ function escapeRegExp(value) {
 
 function inventoryMarkerPattern(leadingNewline) {
   return new RegExp(
-    `${leadingNewline ? '\\n' : ''}## (?:Audited|Observed) Upstream Inventory\\n` +
+    `${leadingNewline ? '\\r?\\n' : ''}## (?:Audited|Observed) Upstream Inventory\\r?\\n` +
       `${escapeRegExp(BEGIN_MARKER)}[\\s\\S]*?${escapeRegExp(END_MARKER)}`,
   );
 }
