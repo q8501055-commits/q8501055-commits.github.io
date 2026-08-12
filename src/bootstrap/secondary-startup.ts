@@ -3,6 +3,25 @@ import { scheduleAfterFirstPaint } from '@/utils/after-paint';
 let vercelAnalyticsScheduled = false;
 let dashboardFontsScheduled = false;
 
+const VERCEL_ANALYTICS_HOSTS = new Set([
+  'worldmonitor.app',
+  'www.worldmonitor.app',
+  'tech.worldmonitor.app',
+  'finance.worldmonitor.app',
+  'commodity.worldmonitor.app',
+  'happy.worldmonitor.app',
+  'energy.worldmonitor.app',
+]);
+
+export function isAllowedVercelAnalyticsHostname(hostname: string): boolean {
+  return VERCEL_ANALYTICS_HOSTS.has(hostname.toLowerCase());
+}
+
+function isCurrentVercelAnalyticsHostnameAllowed(): boolean {
+  return typeof window !== 'undefined'
+    && isAllowedVercelAnalyticsHostname(window.location?.hostname ?? '');
+}
+
 export interface DashboardFontContext {
   variant?: string | null;
   lang?: string | null;
@@ -78,9 +97,14 @@ export function initDeferredDashboardFonts(): void {
 }
 
 export function initVercelAnalytics(): void {
-  if (vercelAnalyticsScheduled || typeof window === 'undefined') return;
+  if (
+    vercelAnalyticsScheduled
+    || typeof window === 'undefined'
+    || !isCurrentVercelAnalyticsHostnameAllowed()
+  ) return;
   vercelAnalyticsScheduled = true;
   scheduleAfterFirstPaint(() => {
+    if (!isCurrentVercelAnalyticsHostnameAllowed()) return;
     void import('@vercel/analytics')
       .then(({ inject }) => {
         inject({

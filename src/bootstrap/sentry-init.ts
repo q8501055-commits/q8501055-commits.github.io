@@ -12,6 +12,20 @@ import { getSentryBuildMetadata } from './sentry-build-metadata';
 
 type SentryNs = typeof import('@sentry/browser');
 
+const SENTRY_HOST_ALLOWLIST = new Set([
+  'worldmonitor.app',
+  'www.worldmonitor.app',
+  'tech.worldmonitor.app',
+  'finance.worldmonitor.app',
+  'commodity.worldmonitor.app',
+  'happy.worldmonitor.app',
+  'energy.worldmonitor.app',
+]);
+
+export function isAllowedSentryHostname(hostname: string): boolean {
+  return SENTRY_HOST_ALLOWLIST.has(hostname.toLowerCase());
+}
+
 // Known third-party hosts fetched by MapLibre (tiles, styles, glyphs, sprites).
 // Hosts whose `Failed to fetch (<host>)` errors are suppressed in beforeSend.
 // Originally maplibre-only (transient tile/style failures), expanded to cover
@@ -58,13 +72,12 @@ const THIRD_PARTY_FETCH_HOST_ALLOWLIST = new Set([
 
 function buildSentryInitOptions(): Parameters<SentryNs['init']>[0] {
   const sentryDsn = import.meta.env.VITE_SENTRY_DSN?.trim();
+  const officialHost = isAllowedSentryHostname(location.hostname);
   return {
     dsn: sentryDsn || undefined,
     ...getSentryBuildMetadata(__APP_VERSION__, __BUILD_HASH__),
-    environment: (location.hostname === 'worldmonitor.app' || location.hostname.endsWith('.worldmonitor.app')) ? 'production'
-      : location.hostname.includes('vercel.app') ? 'preview'
-      : 'development',
-    enabled: Boolean(sentryDsn) && !location.hostname.startsWith('localhost') && !('__TAURI_INTERNALS__' in window),
+    environment: officialHost ? 'production' : 'development',
+    enabled: Boolean(sentryDsn) && officialHost && !('__TAURI_INTERNALS__' in window),
     allowUrls: [
       /https?:\/\/(www\.|tech\.|finance\.|commodity\.|happy\.)?worldmonitor\.app/,
       /https?:\/\/.*\.vercel\.app/,

@@ -4,7 +4,11 @@ import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { dashboardFontFamilies } from '../src/bootstrap/secondary-startup.ts';
+import {
+  dashboardFontFamilies,
+  isAllowedVercelAnalyticsHostname,
+} from '../src/bootstrap/secondary-startup.ts';
+import { isAllowedSentryHostname } from '../src/bootstrap/sentry-init.ts';
 import { scheduleAfterFirstPaint } from '../src/utils/after-paint.ts';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -77,6 +81,22 @@ describe('secondary dashboard startup', () => {
 
   it('combines Nunito + Tajawal for the Arabic happy dashboard', () => {
     assert.deepEqual(dashboardFontFamilies({ variant: 'happy', lang: 'ar', dir: 'rtl' }), ['nunito', 'tajawal']);
+  });
+
+  it('keeps Vercel Analytics off self-hosted and preview domains', () => {
+    assert.equal(isAllowedVercelAnalyticsHostname('www.worldmonitor.app'), true);
+    assert.equal(isAllowedVercelAnalyticsHostname('finance.worldmonitor.app'), true);
+    assert.equal(isAllowedVercelAnalyticsHostname('q8501055-commits.github.io'), false);
+    assert.equal(isAllowedVercelAnalyticsHostname('localhost'), false);
+    assert.equal(isAllowedVercelAnalyticsHostname('worldmonitor.app.evil.example'), false);
+  });
+
+  it('keeps Sentry off self-hosted and preview domains', () => {
+    assert.equal(isAllowedSentryHostname('www.worldmonitor.app'), true);
+    assert.equal(isAllowedSentryHostname('energy.worldmonitor.app'), true);
+    assert.equal(isAllowedSentryHostname('q8501055-commits.github.io'), false);
+    assert.equal(isAllowedSentryHostname('preview.vercel.app'), false);
+    assert.equal(isAllowedSentryHostname('worldmonitor.app.evil.example'), false);
   });
 });
 
