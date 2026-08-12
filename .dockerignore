@@ -21,3 +21,8 @@ secrets/
 docs/internal
 docs/Docs_To_Review
 tests
+.env
+.env.*
+!.env.example
+_backups/
+.gstack/

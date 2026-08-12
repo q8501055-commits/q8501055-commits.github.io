@@ -113,3 +113,5 @@ tmp/
 docs/plans/
 docs/brainstorms/
 playground-pricing.html
+.gstack/
+_backups/

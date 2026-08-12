@@ -1031,4 +1031,4 @@ function main() {
   printStats(stats);
 }
 
-if (process.argv[1] && process.argv[1].endsWith('scripts/source-attribution.mjs')) main();
+if (process.argv[1]?.replaceAll('\\', '/').endsWith('scripts/source-attribution.mjs')) main();

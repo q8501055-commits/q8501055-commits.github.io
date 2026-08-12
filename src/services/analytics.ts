@@ -44,6 +44,7 @@ const UMAMI_WEBSITE_ID = 'e8800335-c853-46a8-8497-c993ed2f58bc';
 // hostname match (`!domains.includes(hostname)` → disabled) — with only the
 // apex listed, every event from the canonical host was silently dropped.
 const UMAMI_DOMAINS = 'worldmonitor.app,www.worldmonitor.app,happy.worldmonitor.app';
+const UMAMI_DOMAIN_ALLOWLIST = new Set(UMAMI_DOMAINS.split(','));
 const UMAMI_QUEUE_LIMIT = 50;
 const UMAMI_LOAD_ATTEMPT_LIMIT = 2;
 const UMAMI_LOAD_RETRY_DELAY_MS = 5_000;
@@ -65,6 +66,21 @@ type QueuedUmamiCall =
       retryAttempt: number;
     };
 type IdentifyCall = Extract<QueuedUmamiCall, { kind: 'identify' }>;
+
+/**
+ * Whether a browser hostname may load the shared Umami tracker.
+ *
+ * Keep this allowlist tied to data-domains: preview deployments, custom hosts,
+ * localhost, and desktop webviews must stay analytics-free by default.
+ */
+export function isAllowedAnalyticsHostname(hostname: string): boolean {
+  return UMAMI_DOMAIN_ALLOWLIST.has(hostname.toLowerCase());
+}
+
+function isCurrentAnalyticsHostnameAllowed(): boolean {
+  return typeof window !== 'undefined'
+    && isAllowedAnalyticsHostname(window.location?.hostname ?? '');
+}
 
 const pendingUmamiCalls: QueuedUmamiCall[] = [];
 let umamiLoadScheduled = false;
@@ -471,7 +487,11 @@ function flushPendingUmamiCalls(): void {
 }
 
 function loadUmamiScript(): void {
-  if (umamiLoadStarted || typeof document === 'undefined') return;
+  if (
+    umamiLoadStarted
+    || typeof document === 'undefined'
+    || !isCurrentAnalyticsHostnameAllowed()
+  ) return;
   installCollectorFetchGate();
   const existing = document.querySelector<HTMLScriptElement>(`script[src="${UMAMI_SCRIPT_SRC}"]`);
   if (existing) {
@@ -523,7 +543,11 @@ export function trackContentHandoff(): void {
 }
 
 export function initAnalytics(): void {
-  if (umamiLoadScheduled || typeof window === 'undefined' || typeof document === 'undefined') return;
+  if (
+    umamiLoadScheduled
+    || typeof document === 'undefined'
+    || !isCurrentAnalyticsHostnameAllowed()
+  ) return;
   umamiLoadScheduled = true;
   scheduleAfterFirstPaint(loadUmamiScript, 3000);
 }

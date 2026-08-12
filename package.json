@@ -46,7 +46,7 @@
     "dev:energy": "cross-env VITE_VARIANT=energy vite",
     "postinstall": "cd blog-site && npm ci --prefer-offline",
     "prebuild:blog": "npm run product:facts",
-    "build:blog": "cd blog-site && npm run build && rm -rf ../public/blog && mkdir -p ../public/blog && cp -r dist/* ../public/blog/",
+    "build:blog": "cross-env ASTRO_TELEMETRY_DISABLED=1 npm --prefix blog-site run build && node -e \"const fs=require('fs'); fs.rmSync('public/blog',{recursive:true,force:true}); fs.cpSync('blog-site/dist','public/blog',{recursive:true});\"",
     "build:crawlable-corpus": "node --import tsx scripts/build-crawlable-corpus.mjs",
     "build:sitemap": "node scripts/build-sitemap.mjs",
     "build:sitemap:check": "npm run build:crawlable-corpus && node scripts/build-sitemap.mjs --check",

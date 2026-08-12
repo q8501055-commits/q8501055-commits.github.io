@@ -56,7 +56,8 @@ function collectUnsafeWindowOpenCalls(file) {
   function visit(node) {
     if (isWindowOpenCall(node) && !hasSafeBlankFeatures(node)) {
       const { line, character } = sourceFile.getLineAndCharacterOfPosition(node.getStart(sourceFile));
-      unsafe.push(`${relative(root, file)}:${line + 1}:${character + 1}`);
+      const portablePath = relative(root, file).replaceAll('\\', '/');
+      unsafe.push(`${portablePath}:${line + 1}:${character + 1}`);
     }
     ts.forEachChild(node, visit);
   }

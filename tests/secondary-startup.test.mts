@@ -110,6 +110,7 @@ describe('deferred Umami loader', () => {
       return script;
     };
     const fakeWindow = {
+      location: { hostname: 'www.worldmonitor.app' },
       requestAnimationFrame: (cb: () => void) => {
         cb();
         return 1;
@@ -245,6 +246,7 @@ function installUmamiHarness(opts: { existingScript?: FakeUmamiScript } = {}): {
 } {
   const appendedScripts: FakeUmamiScript[] = [];
   const fakeWindow: Record<string, unknown> = {
+    location: { hostname: 'www.worldmonitor.app' },
     requestAnimationFrame: (cb: () => void) => {
       cb();
       return 1;
