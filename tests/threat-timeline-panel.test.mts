@@ -185,6 +185,12 @@ async function loadThreatTimelinePanelHarness() {
         if (key === 'common.live') return 'Live';
         if (key === 'common.cached') return 'Cached';
         if (key === 'common.unavailable') return 'Unavailable';
+        if (key === 'components.threatTimeline.snapshotUnavailable') return 'Server insight snapshot unavailable';
+        if (key === 'components.threatTimeline.insightsSnapshot') return 'Insights snapshot';
+        if (key === 'components.threatTimeline.liveClusters') return 'Live clusters';
+        if (key === 'components.threatTimeline.clusterFallback') return 'Cluster fallback';
+        if (key === 'components.threatTimeline.live') return 'live';
+        if (key === 'components.threatTimeline.degraded') return 'degraded';
         return key;
       }
     `],

@@ -12,7 +12,7 @@
  * none of them, so the dependency runs one way.
  */
 
-import { WEB_APP_ORIGIN } from '@/config/web-origin';
+import { WEB_APP_ORIGIN, isOfficialWorldMonitorAppRuntime } from '@/config/web-origin';
 import type { AuthSession } from './auth-state';
 import { getSubscription, openBillingPortal, prereserveBillingPortalTab } from './billing';
 import { deriveBillingUxState, getBillingGateOverride, getReactivationHref } from './billing-state';
@@ -53,6 +53,10 @@ export enum PanelGateReason {
  * signals that aren't already covered by isProUser.
  */
 export function hasPremiumAccess(authState?: AuthSession): boolean {
+  // The self-hosted edition has no upstream Clerk/billing account surface.
+  // Treat locally shipped client capabilities as available so users never hit
+  // an unusable Sign In / Upgrade gate on their own deployment.
+  if (!isOfficialWorldMonitorAppRuntime()) return true;
   if (getSecretState('WORLDMONITOR_API_KEY').present) return true;
   if (isProUser()) return true;
   if (authState?.user?.role === 'pro') return true;

@@ -2,7 +2,7 @@ import { Panel } from './Panel';
 import { IDLE_PAUSE_MS, STORAGE_KEYS } from '@/config';
 import { isDesktopRuntime, getLocalApiPort } from '@/services/runtime';
 import { escapeHtml } from '@/utils/sanitize';
-import { t } from '../services/i18n';
+import { I18N_RESOURCES_LOADED_EVENT, t } from '../services/i18n';
 import { track, trackWebcamSelected, trackWebcamRegionFiltered } from '@/services/analytics';
 import { getStreamQuality, subscribeStreamQualityChange } from '@/services/ai-flow-settings';
 import { isMobileDevice, loadFromStorage, saveToStorage } from '@/utils';
@@ -122,6 +122,7 @@ export class LiveWebcamsPanel extends Panel {
   private readonly boundPlayAllStarter = () => {
     if (this.canHostLiveMedia()) this.playAllFeeds();
   };
+  private readonly boundI18nResourcesLoaded = () => this.refreshLocalizedControlTitles();
 
   // UI
   private fullscreenBtn: HTMLButtonElement | null = null;
@@ -154,6 +155,7 @@ export class LiveWebcamsPanel extends Panel {
     });
     this.boundEmbedMessageHandler = (e) => this.handleEmbedMessage(e);
     window.addEventListener('message', this.boundEmbedMessageHandler);
+    window.addEventListener(I18N_RESOURCES_LOADED_EVENT, this.boundI18nResourcesLoaded);
     this.render();
     registerLiveMediaStarter('live-webcams', this.boundPlayAllStarter);
     document.addEventListener('keydown', this.boundFullscreenEscHandler);
@@ -162,7 +164,7 @@ export class LiveWebcamsPanel extends Panel {
   private createFullscreenButton(): void {
     this.fullscreenBtn = document.createElement('button');
     this.fullscreenBtn.className = 'live-mute-btn';
-    this.fullscreenBtn.title = 'Fullscreen';
+    this.fullscreenBtn.title = t('components.dashboardChrome.fullscreen');
     setTrustedHtml(this.fullscreenBtn, trustedHtml('<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>', "legacy direct innerHTML migration"));
     this.fullscreenBtn.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -173,12 +175,26 @@ export class LiveWebcamsPanel extends Panel {
     header?.appendChild(this.fullscreenBtn);
   }
 
+  private refreshLocalizedControlTitles(): void {
+    if (this.fullscreenBtn) {
+      this.fullscreenBtn.title = this.isFullscreen
+        ? t('components.webcams.exitFullscreen')
+        : t('components.dashboardChrome.fullscreen');
+    }
+    const gridBtn = this.toolbar?.querySelector<HTMLButtonElement>('[data-mode="grid"]');
+    const singleBtn = this.toolbar?.querySelector<HTMLButtonElement>('[data-mode="single"]');
+    if (gridBtn) gridBtn.title = t('components.webcams.gridView');
+    if (singleBtn) singleBtn.title = t('components.webcams.singleView');
+  }
+
   private toggleFullscreen(): void {
     this.isFullscreen = !this.isFullscreen;
     this.element.classList.toggle('live-news-fullscreen', this.isFullscreen);
     document.body.classList.toggle('live-news-fullscreen-active', this.isFullscreen);
     if (this.fullscreenBtn) {
-      this.fullscreenBtn.title = this.isFullscreen ? 'Exit fullscreen' : 'Fullscreen';
+      this.fullscreenBtn.title = this.isFullscreen
+        ? t('components.webcams.exitFullscreen')
+        : t('components.dashboardChrome.fullscreen');
       setTrustedHtml(this.fullscreenBtn, trustedHtml(this.isFullscreen
         ? '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 14h6v6"/><path d="M20 10h-6V4"/><path d="M14 10l7-7"/><path d="M3 21l7-7"/></svg>'
         : '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>', "legacy direct innerHTML migration"));
@@ -245,14 +261,14 @@ export class LiveWebcamsPanel extends Panel {
     gridBtn.className = `webcam-view-btn${this.viewMode === 'grid' ? ' active' : ''}`;
     gridBtn.dataset.mode = 'grid';
     setTrustedHtml(gridBtn, trustedHtml('<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none"><rect x="3" y="3" width="8" height="8" rx="1"/><rect x="13" y="3" width="8" height="8" rx="1"/><rect x="3" y="13" width="8" height="8" rx="1"/><rect x="13" y="13" width="8" height="8" rx="1"/></svg>', "legacy direct innerHTML migration"));
-    gridBtn.title = 'Grid view';
+    gridBtn.title = t('components.webcams.gridView');
     gridBtn.addEventListener('click', () => this.setViewMode('grid'));
 
     const singleBtn = document.createElement('button');
     singleBtn.className = `webcam-view-btn${this.viewMode === 'single' ? ' active' : ''}`;
     singleBtn.dataset.mode = 'single';
     setTrustedHtml(singleBtn, trustedHtml('<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none"><rect x="3" y="3" width="18" height="14" rx="2"/><rect x="3" y="19" width="18" height="2" rx="1"/></svg>', "legacy direct innerHTML migration"));
-    singleBtn.title = 'Single view';
+    singleBtn.title = t('components.webcams.singleView');
     singleBtn.addEventListener('click', () => this.setViewMode('single'));
 
     // On mobile we force single view and hide/disable the grid toggle.
@@ -884,6 +900,7 @@ export class LiveWebcamsPanel extends Panel {
     document.removeEventListener('visibilitychange', this.boundVisibilityHandler);
     document.removeEventListener('keydown', this.boundFullscreenEscHandler);
     window.removeEventListener('message', this.boundEmbedMessageHandler);
+    window.removeEventListener(I18N_RESOURCES_LOADED_EVENT, this.boundI18nResourcesLoaded);
     IDLE_ACTIVITY_EVENTS.forEach(event => {
       document.removeEventListener(event, this.boundIdleResetHandler);
     });

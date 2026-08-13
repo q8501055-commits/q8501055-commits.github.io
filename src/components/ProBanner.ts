@@ -17,6 +17,7 @@ import {
 } from '@/services/pro-banner-policy';
 import { t } from '@/services/i18n';
 import { setTrustedHtml, trustedHtml } from '@/utils/dom-utils';
+import { isOfficialWorldMonitorAppRuntime } from '@/config/web-origin';
 
 
 let bannerEl: HTMLElement | null = null;
@@ -208,6 +209,16 @@ function resolveEffectiveBannerPremium(): EffectiveBannerPremium {
 }
 
 export function showProBanner(container: HTMLElement): void {
+  if (!isOfficialWorldMonitorAppRuntime()) {
+    bannerContainer = null;
+    if (bannerEl) {
+      cancelPendingBannerRemoval();
+      bannerEl.remove();
+      bannerEl = null;
+    }
+    setReservation(false);
+    return;
+  }
   // Cache container even on early-return paths so the entitlement-change
   // listener can re-mount on a downgrade. App.ts calls this once at init
   // regardless of premium state, so caching here covers both "initially
@@ -331,6 +342,16 @@ export function isProBannerVisible(): boolean {
 //     → re-mount via showProBanner. Same gate set as the initial mount path,
 //       so we can never surface a banner the user has already ✕'d this week.
 function syncProBanner(): void {
+  if (!isOfficialWorldMonitorAppRuntime()) {
+    bannerContainer = null;
+    if (bannerEl) {
+      cancelPendingBannerRemoval();
+      bannerEl.remove();
+      bannerEl = null;
+    }
+    setReservation(false);
+    return;
+  }
   const {
     premium,
     accountBacked,

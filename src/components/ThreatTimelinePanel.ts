@@ -3,10 +3,10 @@ import { Panel } from './Panel';
 import { fetchServerInsights, getServerInsights, type ServerInsights } from '@/services/insights-loader';
 import { escapeHtml, sanitizeUrl, unsafeRawHtml } from '@/utils/sanitize';
 import type { ClusteredEvent } from '@/types';
+import { t } from '@/services/i18n';
 import {
   THREAT_LEVELS,
   THREAT_LEVEL_COLORS,
-  THREAT_LEVEL_LABELS,
   buildThreatTimelineState,
   countHighSeverityDays,
   describeThreatTimelineTrend,
@@ -24,6 +24,7 @@ const STACK_LEVELS = [...THREAT_LEVELS].reverse() as TimelineThreatLevel[];
 interface StackRow {
   key: string;
   label: string;
+  labelLines: [string, string];
   critical: number;
   high: number;
   medium: number;
@@ -37,13 +38,13 @@ export class ThreatTimelinePanel extends Panel {
   constructor() {
     super({
       id: 'threat-timeline',
-      title: 'Threat Timeline',
+      title: t('components.threatTimeline.title'),
       showCount: false,
-      infoTooltip: 'Seven-day threat-level distribution from intelligence insights.',
+      infoTooltip: t('components.threatTimeline.infoTooltip'),
       defaultRowSpan: 2,
     });
 
-    this.renderEmpty('Waiting for intelligence insight data.');
+    this.renderEmpty(t('components.threatTimeline.waiting'));
   }
 
   public async refresh(fallbackClusters?: ClusteredEvent[]): Promise<void> {
@@ -61,16 +62,20 @@ export class ThreatTimelinePanel extends Panel {
       console.warn('[ThreatTimeline] insight refresh failed, falling back to clusters:', err);
     }
 
-    this.updateFromClusters(this.lastClusters, 'degraded', 'Server insight snapshot unavailable');
+    this.updateFromClusters(
+      this.lastClusters,
+      'degraded',
+      t('components.threatTimeline.snapshotUnavailable'),
+    );
   }
 
   public updateFromServerInsights(insights: ServerInsights): void {
     const items = normalizeServerInsightStories(insights);
     const state = buildThreatTimelineState(items, {
       status: insights.status,
-      statusMessage: insights.status === 'degraded' ? 'Server insight snapshot degraded' : '',
+      statusMessage: insights.status === 'degraded' ? t('components.threatTimeline.degradedSnapshot') : '',
     });
-    this.renderState(state, 'Insights snapshot');
+    this.renderState(state, t('components.threatTimeline.insightsSnapshot'));
   }
 
   public updateFromClusters(
@@ -81,15 +86,17 @@ export class ThreatTimelinePanel extends Panel {
     this.lastClusters = clusters;
     const items = normalizeClusterStories(clusters);
     const state = buildThreatTimelineState(items, { status, statusMessage });
-    this.renderState(state, status === 'ok' ? 'Live clusters' : 'Cluster fallback');
+    this.renderState(state, status === 'ok'
+      ? t('components.threatTimeline.liveClusters')
+      : t('components.threatTimeline.clusterFallback'));
   }
 
   private renderState(state: ThreatTimelineState, sourceLabel: string): void {
     this.setCount(state.items.length);
     if (!state.hasData) {
       const message = state.status === 'degraded'
-        ? 'No recent threat metadata available from the intelligence snapshot.'
-        : 'No recent threat metadata in the last 7 days.';
+        ? t('components.threatTimeline.noRecentSnapshot')
+        : t('components.threatTimeline.noRecentSevenDays');
       this.renderEmpty(message, state.degradedReasons);
       return;
     }
@@ -97,6 +104,17 @@ export class ThreatTimelinePanel extends Panel {
     const highSeverityCount = state.totals.critical + state.totals.high;
     const highSeverityDays = countHighSeverityDays(state);
     const trend = describeThreatTimelineTrend(state.days);
+    const recentHighSeverity = state.days.slice(-3)
+      .reduce((sum, day) => sum + day.counts.critical + day.counts.high, 0);
+    const earlierHighSeverity = state.days.slice(0, 3)
+      .reduce((sum, day) => sum + day.counts.critical + day.counts.high, 0);
+    const trendLabel = t(`components.threatTimeline.${trend.className}`);
+    const trendCopy = trend.className === 'quiet'
+      ? t('components.threatTimeline.quietCopy')
+      : t('components.threatTimeline.recentVsEarlier', {
+        recent: recentHighSeverity,
+        earlier: earlierHighSeverity,
+      });
     const total = state.items.length;
     const chart = this.renderChart(state.days);
     const groups = this.renderGroups(state.groups);
@@ -104,34 +122,42 @@ export class ThreatTimelinePanel extends Panel {
       ? `<div class="threat-timeline-note">${escapeHtml(state.degradedReasons.join(' | '))}</div>`
       : '';
 
-    this.setDataBadge(state.status === 'ok' ? 'live' : 'cached', state.status === 'ok' ? sourceLabel : 'degraded');
+    this.setDataBadge(
+      state.status === 'ok' ? 'live' : 'cached',
+      state.status === 'ok'
+        ? sourceLabel
+        : `${t('components.threatTimeline.degraded')} · ${sourceLabel}`,
+    );
     this.setSafeContent(unsafeRawHtml(`
       <div class="threat-timeline-panel">
         <div class="threat-timeline-summary">
           <div class="threat-timeline-stat">
             <span class="threat-timeline-stat-value">${highSeverityCount}</span>
-            <span class="threat-timeline-stat-label">Critical/high</span>
+            <span class="threat-timeline-stat-label">${t('components.threatTimeline.criticalHigh')}</span>
           </div>
           <div class="threat-timeline-stat">
             <span class="threat-timeline-stat-value">${highSeverityDays}</span>
-            <span class="threat-timeline-stat-label">Active days</span>
+            <span class="threat-timeline-stat-label">${t('components.threatTimeline.activeDays')}</span>
           </div>
           <div class="threat-timeline-trend ${trend.className}">
-            <span class="threat-timeline-trend-label">${escapeHtml(trend.label)}</span>
-            <span class="threat-timeline-trend-copy">${escapeHtml(trend.copy)}</span>
+            <span class="threat-timeline-trend-label">${escapeHtml(trendLabel)}</span>
+            <span class="threat-timeline-trend-copy">${escapeHtml(trendCopy)}</span>
           </div>
         </div>
         ${chart}
         <div class="threat-timeline-legend">${THREAT_LEVELS.map(level => `
           <span class="threat-timeline-legend-item">
             <span class="threat-timeline-swatch" style="background:${THREAT_LEVEL_COLORS[level]}"></span>
-            ${THREAT_LEVEL_LABELS[level]} <strong>${state.totals[level]}</strong>
+            ${t(`components.threatTimeline.levels.${level}`)} <strong>${state.totals[level]}</strong>
           </span>
         `).join('')}</div>
-        <div class="threat-timeline-groups" aria-label="Current threat alerts grouped by level">
+        <div class="threat-timeline-groups" aria-label="${t('components.threatTimeline.currentAlertsAria')}">
           ${groups}
         </div>
-        <div class="threat-timeline-footer">${total} insight item${total === 1 ? '' : 's'} from ${escapeHtml(sourceLabel)}</div>
+        <div class="threat-timeline-footer">${t('components.threatTimeline.stories', {
+          count: total,
+          source: sourceLabel,
+        })}</div>
         ${degradation}
       </div>
       ${this.renderStyles()}
@@ -148,7 +174,7 @@ export class ThreatTimelinePanel extends Panel {
       <div class="threat-timeline-panel">
         <div class="threat-timeline-empty">
           <div class="threat-timeline-empty-title">${escapeHtml(message)}</div>
-          <div class="threat-timeline-empty-copy">The panel will populate when intelligence insights include timestamped threat levels.</div>
+          <div class="threat-timeline-empty-copy">${t('components.threatTimeline.emptyCopy')}</div>
         </div>
         ${reasonHtml}
       </div>
@@ -160,15 +186,31 @@ export class ThreatTimelinePanel extends Panel {
     const width = 360;
     const height = 150;
     const margin = { top: 12, right: 10, bottom: 28, left: 24 };
-    const rows: StackRow[] = days.map(day => ({
-      key: day.key,
-      label: day.label,
-      critical: day.counts.critical,
-      high: day.counts.high,
-      medium: day.counts.medium,
-      low: day.counts.low,
-      info: day.counts.info,
-    }));
+    const rows: StackRow[] = days.map(day => {
+      const dateParts = new Intl.DateTimeFormat(document.documentElement.lang || 'zh-TW', {
+        month: 'short',
+        day: 'numeric',
+        timeZone: 'UTC',
+      }).formatToParts(new Date(day.startMs));
+      const month = dateParts
+        .filter(part => part.type === 'month' || (part.type === 'literal' && part.value.includes('月')))
+        .map(part => part.value)
+        .join('') || day.label;
+      const dayNumber = dateParts
+        .filter(part => part.type === 'day' || (part.type === 'literal' && part.value.includes('日')))
+        .map(part => part.value)
+        .join('');
+      return {
+        key: day.key,
+        label: dateParts.map(part => part.value).join(''),
+        labelLines: [month, dayNumber],
+        critical: day.counts.critical,
+        high: day.counts.high,
+        medium: day.counts.medium,
+        low: day.counts.low,
+        info: day.counts.info,
+      };
+    });
     const maxTotal = Math.max(1, d3.max(days, day => day.total) ?? 1);
     const x = d3.scaleBand<string>()
       .domain(days.map(day => day.key))
@@ -194,7 +236,7 @@ export class ThreatTimelinePanel extends Panel {
         const barHeight = Math.max(0, yBottom - yTop);
         if (barHeight <= 0) return '';
         return `<rect x="${xPos.toFixed(1)}" y="${yTop.toFixed(1)}" width="${x.bandwidth().toFixed(1)}" height="${barHeight.toFixed(1)}" rx="2" fill="${THREAT_LEVEL_COLORS[level]}">
-          <title>${escapeHtml(day.label)} ${THREAT_LEVEL_LABELS[level]}: ${day.counts[level]}</title>
+          <title>${escapeHtml(rows[index]?.label ?? day.label)} ${t(`components.threatTimeline.levels.${level}`)}: ${day.counts[level]}</title>
         </rect>`;
       }).join('');
     }).join('');
@@ -203,16 +245,13 @@ export class ThreatTimelinePanel extends Panel {
       const xPos = x(day.key);
       if (xPos === undefined) return '';
       const centerX = (xPos + x.bandwidth() / 2).toFixed(1);
-      const [month = '', dayNumber = ''] = day.label.split(' ');
-      return `<text x="${centerX}" y="${height - 16}" text-anchor="middle">
-        <tspan x="${centerX}" dy="0">${escapeHtml(month)}</tspan>
-        <tspan x="${centerX}" dy="10">${escapeHtml(dayNumber)}</tspan>
-      </text>`;
+      const labelLines = rows.find(row => row.key === day.key)?.labelLines ?? [day.label, ''];
+      return `<text x="${centerX}" y="${height - 20}" text-anchor="middle"><tspan x="${centerX}" dy="0">${escapeHtml(labelLines[0])}</tspan><tspan x="${centerX}" dy="10">${escapeHtml(labelLines[1])}</tspan></text>`;
     }).join('');
 
     return `
       <div class="threat-timeline-chart-wrap">
-        <svg class="threat-timeline-chart" viewBox="0 0 ${width} ${height}" role="img" aria-label="Seven-day threat level distribution">
+        <svg class="threat-timeline-chart" viewBox="0 0 ${width} ${height}" role="img" aria-label="${t('components.threatTimeline.chartAria')}">
           <line x1="${margin.left}" x2="${width - margin.right}" y1="${gridY.toFixed(1)}" y2="${gridY.toFixed(1)}" class="threat-timeline-grid" />
           <line x1="${margin.left}" x2="${width - margin.right}" y1="${(height - margin.bottom).toFixed(1)}" y2="${(height - margin.bottom).toFixed(1)}" class="threat-timeline-axis" />
           ${bars}
@@ -224,12 +263,12 @@ export class ThreatTimelinePanel extends Panel {
 
   private renderGroups(groups: ThreatTimelineGroup[]): string {
     if (groups.length === 0) {
-      return '<div class="threat-timeline-empty-inline">No grouped alerts in the current window.</div>';
+      return `<div class="threat-timeline-empty-inline">${t('components.threatTimeline.noGroupedAlerts')}</div>`;
     }
     return groups.map(group => `
       <section class="threat-timeline-group threat-${group.level}">
         <div class="threat-timeline-group-header">
-          <span class="threat-timeline-group-name">${escapeHtml(group.label)}</span>
+          <span class="threat-timeline-group-name">${t(`components.threatTimeline.levels.${group.level}`)}</span>
           <span class="threat-timeline-group-count">${group.count}</span>
         </div>
         ${group.items.map(item => this.renderItem(item)).join('')}
@@ -244,9 +283,11 @@ export class ThreatTimelinePanel extends Panel {
     const titleHtml = href
       ? `<a href="${href}" target="_blank" rel="noopener" class="threat-timeline-item-title">${title}</a>`
       : `<span class="threat-timeline-item-title">${title}</span>`;
-    const source = escapeHtml(item.provenance || item.source || 'News Digest');
+    const source = escapeHtml(item.provenance || item.source || t('components.threatTimeline.source'));
     const age = this.formatAge(item.timestampMs);
-    const sourceCount = item.sourceCount > 1 ? `<span class="threat-timeline-source-count">${item.sourceCount} sources</span>` : '';
+    const sourceCount = item.sourceCount > 1
+      ? `<span class="threat-timeline-source-count">${t('components.threatTimeline.sourceCount', { count: item.sourceCount })}</span>`
+      : '';
     return `
       <article class="threat-timeline-item">
         ${titleHtml}
@@ -262,10 +303,10 @@ export class ThreatTimelinePanel extends Panel {
   private formatAge(timestampMs: number): string {
     const diffMs = Math.max(0, Date.now() - timestampMs);
     const hours = Math.floor(diffMs / (60 * 60 * 1000));
-    if (hours < 1) return 'just now';
-    if (hours < 24) return `${hours}h ago`;
+    if (hours < 1) return t('components.threatTimeline.justNow');
+    if (hours < 24) return t('components.threatTimeline.hoursAgo', { count: hours });
     const days = Math.floor(hours / 24);
-    return `${days}d ago`;
+    return t('components.threatTimeline.daysAgo', { count: days });
   }
 
   private renderStyles(): string {

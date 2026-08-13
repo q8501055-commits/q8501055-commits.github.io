@@ -40,6 +40,7 @@ import { t } from '@/services/i18n';
 import { getCurrentTheme } from '@/utils';
 import { trackCriticalBannerAction, trackCheckoutSuccess, trackCheckoutFailed, trackGateHit, replayPendingCheckoutSuccess, replayPendingProFunnelEvents, replayPendingConversionEvents } from '@/services/analytics';
 import { getStoredMapModePreference } from '@/services/map-mode-preference';
+import { isOfficialWorldMonitorAppRuntime } from '@/config/web-origin';
 import { loadWidgets, saveWidget, isProUser, isProTierResolved } from '@/services/widget-store';
 import { sanitizeLockedLayers, shouldSanitizeLockedLayers } from '@/config/map-layer-definitions';
 import type { CustomWidgetSpec } from '@/services/widget-store';
@@ -178,10 +179,10 @@ const LATE_REGISTERED_PANEL_KEYS = new Set(['live-news']);
 const CW_PRO_GATE_TAB_RECOVERY_KEY = 'worldmonitor-cw-pro-gate-tab-recovery-v1';
 
 const DASHBOARD_REFERENCE_LINKS = [
-  { label: 'Countries', path: '/countries/' },
-  { label: 'Chokepoints', path: '/chokepoints/' },
-  { label: 'Crises', path: '/crises/' },
-  { label: 'Tools', path: '/tools/' },
+  { labelKey: 'components.dashboardChrome.countries', path: '/countries/' },
+  { labelKey: 'components.dashboardChrome.chokepoints', path: '/chokepoints/' },
+  { labelKey: 'components.dashboardChrome.crises', path: '/crises/' },
+  { labelKey: 'components.dashboardChrome.tools', path: '/tools/' },
 ] as const;
 
 export const VARIANT_SWITCHER_DASHBOARD_URLS = {
@@ -883,16 +884,17 @@ export class PanelLayoutManager implements AppModule {
     // (which shoved #panelsGrid up 698px, field CLS ~0.62 for this cohort).
     const mapStartsCollapsed = this.ctx.isMobile && PanelLayoutManager.isMobileMapCollapsedPreferred();
     const bootShellFootprint = import.meta.env.DEV ? captureBootShellFootprint(this.ctx.container) : null;
-    const referenceLinksHtml = DASHBOARD_REFERENCE_LINKS.map(({ label, path }) => {
+    const showCommercialLinks = isOfficialWorldMonitorAppRuntime();
+    const referenceLinksHtml = DASHBOARD_REFERENCE_LINKS.map(({ labelKey, path }) => {
       const href = this.ctx.isDesktopApp ? `https://www.worldmonitor.app${path}` : path;
-      return `<a href="${href}" target="_blank" rel="noopener">${label}</a>`;
+      return `<a href="${href}" target="_blank" rel="noopener">${t(labelKey)}</a>`;
     }).join('');
 
     markLcpDebug('wm:layout:render-start');
     document.documentElement.classList.add('wm-layout-hydrated');
     setTrustedHtml(this.ctx.container, trustedHtml(`
       ${this.ctx.isDesktopApp ? '<div class="tauri-titlebar" data-tauri-drag-region></div>' : ''}
-      <a href="#main" class="skip-link">Skip to main content</a>
+      <a href="#main" class="skip-link">${t('components.dashboardChrome.skipToMain')}</a>
       <div id="proBannerSlot" class="pro-banner-slot" aria-live="polite"></div>
       <div class="header">
         <div class="header-left">
@@ -952,9 +954,9 @@ export class PanelLayoutManager implements AppModule {
                class="variant-option ${SITE_VARIANT === 'happy' ? 'active' : ''}"
                data-variant="happy"
                ${vTarget('happy')}
-               title="Good News${SITE_VARIANT === 'happy' ? ` ${t('common.currentVariant')}` : ''}">
+               title="${t('components.missionPresets.goodNewsExplorerShort')}${SITE_VARIANT === 'happy' ? ` ${t('common.currentVariant')}` : ''}">
               <span class="variant-icon">☀️</span>
-              <span class="variant-label">Good News</span>
+              <span class="variant-label">${t('components.missionPresets.goodNewsExplorerShort')}</span>
             </a>`;
       })()}</div>
           <span class="logo">MONITOR</span><span class="logo-mobile">World Monitor</span><span class="version">v${__APP_VERSION__}</span>${BETA_MODE ? '<span class="beta-badge">BETA</span>' : ''}
@@ -1003,17 +1005,17 @@ export class PanelLayoutManager implements AppModule {
       <nav class="mobile-menu" id="mobileMenu">
         <div class="mobile-menu-header">
           <span class="mobile-menu-title">WORLD MONITOR</span>
-          <button class="mobile-menu-close" id="mobileMenuClose" aria-label="Close menu">
+          <button class="mobile-menu-close" id="mobileMenuClose" aria-label="${t('components.dashboardChrome.closeMenu')}">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
           </button>
         </div>
-        <div class="mobile-menu-divider"></div>
-        <div class="mobile-menu-account" aria-label="Account">
+        ${showCommercialLinks ? `<div class="mobile-menu-divider"></div>
+        <div class="mobile-menu-account" aria-label="${t('auth.myAccount')}">
           <span class="mobile-menu-account-icon" aria-hidden="true">◯</span>
           <div id="mobileAuthWidgetMount"></div>
-          <button class="mobile-auth-fallback" id="mobileAuthFallback" type="button">Sign In</button>
+          <button class="mobile-auth-fallback" id="mobileAuthFallback" type="button">${t('auth.signIn')}</button>
         </div>
-        <div class="mobile-menu-divider"></div>
+        <div class="mobile-menu-divider"></div>` : '<div class="mobile-menu-divider"></div>'}
         ${(() => {
         const variants = [
           { key: 'full', icon: '🌍', label: t('header.world') },
@@ -1021,7 +1023,7 @@ export class PanelLayoutManager implements AppModule {
           { key: 'finance', icon: '📈', label: t('header.finance') },
           { key: 'commodity', icon: '⛏️', label: t('header.commodity') },
           { key: 'energy', icon: '⚡', label: t('header.energy') },
-          { key: 'happy', icon: '☀️', label: 'Good News' },
+          { key: 'happy', icon: '☀️', label: t('components.missionPresets.goodNewsExplorerShort') },
         ];
         return variants.map(v =>
           `<button class="mobile-menu-item mobile-menu-variant ${v.key === SITE_VARIANT ? 'active' : ''}" data-variant="${v.key}">
@@ -1039,7 +1041,7 @@ export class PanelLayoutManager implements AppModule {
         </button>
         <button class="mobile-menu-item" id="mobileMenuMission">
           <span class="mobile-menu-item-icon">◎</span>
-          <span class="mobile-menu-item-label">Mission</span>
+          <span class="mobile-menu-item-label">${t('components.dashboardChrome.mission')}</span>
           <span class="mobile-menu-chevron">▸</span>
         </button>
         <div class="mobile-menu-divider"></div>
@@ -1049,7 +1051,7 @@ export class PanelLayoutManager implements AppModule {
         </button>
         <button class="mobile-menu-item" id="mobileMenuTheme">
           <span class="mobile-menu-item-icon">${getCurrentTheme() === 'dark' ? '☀️' : '🌙'}</span>
-          <span class="mobile-menu-item-label">${getCurrentTheme() === 'dark' ? 'Light Mode' : 'Dark Mode'}</span>
+          <span class="mobile-menu-item-label">${getCurrentTheme() === 'dark' ? t('components.dashboardChrome.lightMode') : t('components.dashboardChrome.darkMode')}</span>
         </button>
         <a class="mobile-menu-item" href="https://x.com/eliehabib" target="_blank" rel="noopener">
           <span class="mobile-menu-item-icon"><svg class="x-logo" width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg></span>
@@ -1058,10 +1060,10 @@ export class PanelLayoutManager implements AppModule {
         <div class="mobile-menu-divider"></div>
         <div class="mobile-menu-footer-links">
           ${referenceLinksHtml}
-          <a href="${this.ctx.isDesktopApp ? 'https://www.worldmonitor.app/pro#pricing' : '/pro#pricing'}" target="_blank" rel="noopener">Pricing</a>
-          <a href="${this.ctx.isDesktopApp ? 'https://worldmonitor.app/blog/' : 'https://www.worldmonitor.app/blog/'}" target="_blank" rel="noopener">Blog</a>
-          <a href="${this.ctx.isDesktopApp ? 'https://worldmonitor.app/docs' : 'https://www.worldmonitor.app/docs'}" target="_blank" rel="noopener">Docs</a>
-          <a href="https://status.worldmonitor.app/" target="_blank" rel="noopener">Status</a>
+          ${showCommercialLinks ? `<a href="${this.ctx.isDesktopApp ? 'https://www.worldmonitor.app/pro#pricing' : '/pro#pricing'}" target="_blank" rel="noopener">${t('components.dashboardChrome.pricing')}</a>` : ''}
+          <a href="${this.ctx.isDesktopApp ? 'https://worldmonitor.app/blog/' : 'https://www.worldmonitor.app/blog/'}" target="_blank" rel="noopener">${t('components.dashboardChrome.blog')}</a>
+          <a href="${this.ctx.isDesktopApp ? 'https://worldmonitor.app/docs' : 'https://www.worldmonitor.app/docs'}" target="_blank" rel="noopener">${t('components.dashboardChrome.docs')}</a>
+          <a href="https://status.worldmonitor.app/" target="_blank" rel="noopener">${t('components.dashboardChrome.status')}</a>
         </div>
         <div class="mobile-menu-version">v${__APP_VERSION__}</div>
       </nav>
@@ -1090,15 +1092,15 @@ export class PanelLayoutManager implements AppModule {
         <div class="map-section${mapStartsCollapsed ? ' collapsed' : ''}" id="mapSection">
           <div class="panel-header">
             <div class="panel-header-left">
-              <span class="panel-title">${SITE_VARIANT === 'tech' ? t('panels.techMap') : SITE_VARIANT === 'happy' ? 'Good News Map' : t('panels.map')}</span>
+              <span class="panel-title">${SITE_VARIANT === 'tech' ? t('panels.techMap') : SITE_VARIANT === 'happy' ? t('components.dashboardChrome.goodNewsMap') : t('panels.map')}</span>
             </div>
             <span class="header-clock" id="headerClock" translate="no"></span>
             <div class="map-header-actions">
               <div class="map-dimension-toggle" id="mapDimensionToggle">
-                <button class="map-dim-btn${isGlobeMode ? '' : ' active'}" data-mode="flat" title="2D Map">2D</button>
-                <button class="map-dim-btn${isGlobeMode ? ' active' : ''}" data-mode="globe" title="3D Globe">3D</button>
+                <button class="map-dim-btn${isGlobeMode ? '' : ' active'}" data-mode="flat" title="${t('components.dashboardChrome.map2d')}">2D</button>
+                <button class="map-dim-btn${isGlobeMode ? ' active' : ''}" data-mode="globe" title="${t('components.dashboardChrome.map3d')}">3D</button>
               </div>
-              <button class="map-pin-btn" id="mapFullscreenBtn" title="Fullscreen">
+              <button class="map-pin-btn" id="mapFullscreenBtn" title="${t('components.dashboardChrome.fullscreen')}">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>
               </button>
               <button class="map-pin-btn" id="mapPinBtn" title="${t('header.pinMap')}">
@@ -1118,19 +1120,19 @@ export class PanelLayoutManager implements AppModule {
       </main>
       <nav class="mobile-tab-bar" id="mobileTabBar" aria-label="Primary">
         <button class="mobile-tab active" type="button" data-mobile-tab="today" aria-current="page">
-          <span class="mobile-tab-icon" aria-hidden="true">◉</span><span>Today</span>
+          <span class="mobile-tab-icon" aria-hidden="true">◉</span><span>${t('components.dashboardChrome.today')}</span>
         </button>
         <button class="mobile-tab" type="button" data-mobile-tab="map">
-          <span class="mobile-tab-icon" aria-hidden="true">◎</span><span>Map</span>
+          <span class="mobile-tab-icon" aria-hidden="true">◎</span><span>${t('components.dashboardChrome.map')}</span>
         </button>
         <button class="mobile-tab" type="button" data-mobile-tab="search">
-          <span class="mobile-tab-icon" aria-hidden="true">⌕</span><span>Search</span>
+          <span class="mobile-tab-icon" aria-hidden="true">⌕</span><span>${t('components.dashboardChrome.search')}</span>
         </button>
         <button class="mobile-tab" type="button" data-mobile-tab="alerts">
-          <span class="mobile-tab-icon" aria-hidden="true">△</span><span>Alerts</span>
+          <span class="mobile-tab-icon" aria-hidden="true">△</span><span>${t('components.dashboardChrome.alerts')}</span>
         </button>
         <button class="mobile-tab" type="button" data-mobile-tab="more">
-          <span class="mobile-tab-icon" aria-hidden="true">•••</span><span>More</span>
+          <span class="mobile-tab-icon" aria-hidden="true">•••</span><span>${t('components.dashboardChrome.more')}</span>
         </button>
       </nav>
       <footer class="site-footer">
@@ -1143,10 +1145,10 @@ export class PanelLayoutManager implements AppModule {
         </div>
         <nav>
           ${referenceLinksHtml}
-          <a href="${this.ctx.isDesktopApp ? 'https://www.worldmonitor.app/pro#pricing' : '/pro#pricing'}" target="_blank" rel="noopener">Pricing</a>
-          <a href="${this.ctx.isDesktopApp ? 'https://worldmonitor.app/blog/' : 'https://www.worldmonitor.app/blog/'}" target="_blank" rel="noopener">Blog</a>
-          <a href="${this.ctx.isDesktopApp ? 'https://worldmonitor.app/docs' : 'https://www.worldmonitor.app/docs'}" target="_blank" rel="noopener">Docs</a>
-          <a href="https://status.worldmonitor.app/" target="_blank" rel="noopener">Status</a>
+          ${showCommercialLinks ? `<a href="${this.ctx.isDesktopApp ? 'https://www.worldmonitor.app/pro#pricing' : '/pro#pricing'}" target="_blank" rel="noopener">${t('components.dashboardChrome.pricing')}</a>` : ''}
+          <a href="${this.ctx.isDesktopApp ? 'https://worldmonitor.app/blog/' : 'https://www.worldmonitor.app/blog/'}" target="_blank" rel="noopener">${t('components.dashboardChrome.blog')}</a>
+          <a href="${this.ctx.isDesktopApp ? 'https://worldmonitor.app/docs' : 'https://www.worldmonitor.app/docs'}" target="_blank" rel="noopener">${t('components.dashboardChrome.docs')}</a>
+          <a href="https://status.worldmonitor.app/" target="_blank" rel="noopener">${t('components.dashboardChrome.status')}</a>
           <a href="https://github.com/koala73/worldmonitor" target="_blank" rel="noopener">GitHub</a>
           <a href="https://discord.gg/re63kWKxaz" target="_blank" rel="noopener">Discord</a>
           <a href="https://x.com/worldmonitorai" target="_blank" rel="noopener">X</a>
@@ -2715,7 +2717,7 @@ export class PanelLayoutManager implements AppModule {
         },
       })).catch((err) => console.error('[widget-chat] failed to lazy-load WidgetChatModal', err));
     });
-    panelsGrid.appendChild(proBlock);
+    if (isOfficialWorldMonitorAppRuntime()) panelsGrid.appendChild(proBlock);
 
     const mcpBlock = document.createElement('button');
     mcpBlock.className = 'add-panel-block mcp-panel-block';
@@ -2738,7 +2740,7 @@ export class PanelLayoutManager implements AppModule {
         onComplete: (spec) => this.addMcpPanel(spec),
       })).catch((err) => console.error('[mcp-connect] failed to lazy-load McpConnectModal', err));
     });
-    panelsGrid.appendChild(mcpBlock);
+    if (isOfficialWorldMonitorAppRuntime()) panelsGrid.appendChild(mcpBlock);
 
     // Reactively show/hide Pro-only UI blocks ("Create Interactive Widget" +
     // "Connect MCP" CTAs) based on premium access.
@@ -2762,7 +2764,9 @@ export class PanelLayoutManager implements AppModule {
         block.style.display = isPro ? '' : 'none';
       }
     };
-    const reapply = () => applyProBlockGating(hasPremiumAccess(getAuthState()));
+    const reapply = () => applyProBlockGating(
+      isOfficialWorldMonitorAppRuntime() && hasPremiumAccess(getAuthState()),
+    );
     reapply();
     this.proBlockUnsubscribe = subscribeAuthState(reapply);
     this.proBlockEntitlementUnsubscribe = onEntitlementChange(reapply);

@@ -1916,11 +1916,11 @@ export class GlobeMap {
     const el = document.createElement('div');
     el.className = 'map-controls deckgl-controls';
     setTrustedHtml(el, trustedHtml(`
-      <span class="globe-beta-badge">BETA</span>
+      <span class="globe-beta-badge">${t('components.deckgl.beta')}</span>
       <div class="zoom-controls">
-        <button class="map-btn zoom-in"    title="Zoom in">+</button>
-        <button class="map-btn zoom-out"   title="Zoom out">-</button>
-        <button class="map-btn zoom-reset" title="Reset view">&#8962;</button>
+        <button class="map-btn zoom-in"    title="${t('components.deckgl.zoomIn')}">+</button>
+        <button class="map-btn zoom-out"   title="${t('components.deckgl.zoomOut')}">-</button>
+        <button class="map-btn zoom-reset" title="${t('components.deckgl.resetView')}">&#8962;</button>
       </div>`, "legacy direct innerHTML migration"));
     this.container.appendChild(el);
     el.addEventListener('click', (e) => {
@@ -1970,7 +1970,7 @@ export class GlobeMap {
       <input type="text" class="layer-search" placeholder="${t('components.deckgl.layerSearch')}" autocomplete="off" spellcheck="false" />
       <div class="toggle-list" style="max-height:32vh;overflow-y:auto;scrollbar-width:thin;">
         ${layers.map(({ key, label, icon, presentation }) => {
-            const explainLabel = escapeHtml(`Explain ${label} layer`);
+            const explainLabel = escapeHtml(`${t('components.deckgl.layerGuide')}: ${label}`);
             const hasExplanation = hasCuratedLayerExplanation(key);
             return `
           <div class="layer-toggle-row" data-layer="${key}">

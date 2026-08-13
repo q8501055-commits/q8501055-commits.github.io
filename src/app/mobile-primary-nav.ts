@@ -3,6 +3,7 @@ import type { MapView } from '@/components/MapContainer';
 import type { AuthLauncher } from '@/components/AuthLauncher';
 import { AuthHeaderWidget } from '@/components/AuthHeaderWidget';
 import { SITE_VARIANT } from '@/config';
+import { isOfficialWorldMonitorAppRuntime } from '@/config/web-origin';
 import { getAuthState, subscribeAuthState } from '@/services/auth-state';
 import { track, trackMapViewChange, trackThemeChanged } from '@/services/analytics';
 import { getCurrentTheme, setTheme, showToast } from '@/utils';
@@ -43,9 +44,18 @@ export class MobilePrimaryNav {
     });
   }
 
-  setupAuth(modal: AuthLauncher): void {
+  setupAuth(modal: AuthLauncher | null): void {
     const mobileMount = document.getElementById('mobileAuthWidgetMount');
     const fallback = document.getElementById('mobileAuthFallback') as HTMLButtonElement | null;
+    const accountSection = mobileMount?.closest<HTMLElement>('.mobile-menu-account')
+      ?? fallback?.closest<HTMLElement>('.mobile-menu-account');
+    if (!isOfficialWorldMonitorAppRuntime()) {
+      mobileMount?.replaceChildren();
+      if (fallback) fallback.hidden = true;
+      if (accountSection) accountSection.hidden = true;
+      return;
+    }
+    if (!modal) return;
     const openAuth = () => {
       this.closeMenu();
       modal.open();

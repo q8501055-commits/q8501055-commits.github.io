@@ -92,6 +92,7 @@ import { mlWorker } from '@/services/ml-worker';
 import { WM_OPEN_NOTIFICATIONS_FOR_COUNTRY } from '@/utils/notify-country-link';
 import { AuthLauncher } from '@/components/AuthLauncher';
 import { AuthHeaderWidget } from '@/components/AuthHeaderWidget';
+import { isOfficialWorldMonitorAppRuntime } from '@/config/web-origin';
 import { t } from '@/services/i18n';
 import { TvModeController } from '@/services/tv-mode';
 import { getAuthState, subscribeAuthState } from '@/services/auth-state';
@@ -111,6 +112,57 @@ import { overlayHistory, type OverlayId } from '@/utils/overlay-history';
 import { MobilePrimaryNav } from '@/app/mobile-primary-nav';
 import { stageVariantSelection } from '@/services/variant-panel-ownership';
 import { transferSourceGateOwnershipToUser as releaseSourceGateOwnership } from '@/services/source-cap';
+
+const MISSION_PRESET_COPY_KEYS: Record<MissionPresetId, {
+  label: string;
+  shortLabel: string;
+  description: string;
+}> = {
+  'crisis-desk': {
+    label: 'components.missionPresets.crisisDeskLabel',
+    shortLabel: 'components.missionPresets.crisisDeskShort',
+    description: 'components.missionPresets.crisisDeskDescription',
+  },
+  'supply-chain-risk': {
+    label: 'components.missionPresets.supplyChainRiskLabel',
+    shortLabel: 'components.missionPresets.supplyChainRiskShort',
+    description: 'components.missionPresets.supplyChainRiskDescription',
+  },
+  'energy-security': {
+    label: 'components.missionPresets.energySecurityLabel',
+    shortLabel: 'components.missionPresets.energySecurityShort',
+    description: 'components.missionPresets.energySecurityDescription',
+  },
+  'osint-newsroom': {
+    label: 'components.missionPresets.newsSeekerLabel',
+    shortLabel: 'components.missionPresets.newsSeekerShort',
+    description: 'components.missionPresets.newsSeekerDescription',
+  },
+  'macro-market-watch': {
+    label: 'components.missionPresets.stockGeekLabel',
+    shortLabel: 'components.missionPresets.stockGeekShort',
+    description: 'components.missionPresets.stockGeekDescription',
+  },
+  'tech-ai-watch': {
+    label: 'components.missionPresets.techAiWatcherLabel',
+    shortLabel: 'components.missionPresets.techAiWatcherShort',
+    description: 'components.missionPresets.techAiWatcherDescription',
+  },
+  'good-news-explorer': {
+    label: 'components.missionPresets.goodNewsExplorerLabel',
+    shortLabel: 'components.missionPresets.goodNewsExplorerShort',
+    description: 'components.missionPresets.goodNewsExplorerDescription',
+  },
+};
+
+function translatedMissionPreset(preset: MissionPreset): Pick<MissionPreset, 'label' | 'shortLabel' | 'description'> {
+  const keys = MISSION_PRESET_COPY_KEYS[preset.id];
+  return {
+    label: t(keys.label),
+    shortLabel: t(keys.shortLabel),
+    description: t(keys.description),
+  };
+}
 
 function readStorageValue(key: string): string | null {
   try {
@@ -822,7 +874,8 @@ export class EventHandlerManager implements AppModule {
     if (!mount) return;
 
     const active = loadStoredMissionPreset();
-    const label = active?.shortLabel ?? 'Mission';
+    const activeCopy = active ? translatedMissionPreset(active) : null;
+    const label = activeCopy?.shortLabel ?? t('components.dashboardChrome.mission');
     const icon = active?.icon ?? '◎';
     const activeClass = active ? ' mission-preset-button--active' : '';
     const suggestedClass = !active && !isMissionPresetPromptDismissed() ? ' mission-preset-button--suggested' : '';
@@ -834,7 +887,7 @@ export class EventHandlerManager implements AppModule {
         type="button"
         aria-haspopup="dialog"
         aria-expanded="false"
-        title="${escapeHtml(active ? `Mission: ${active.label}` : 'Choose mission preset')}"
+        title="${escapeHtml(active ? `${t('components.dashboardChrome.mission')}: ${activeCopy?.label}` : t('components.dashboardChrome.missionTitle'))}"
       >
         <span class="mission-preset-button__icon">${escapeHtml(icon)}</span>
         <span class="mission-preset-button__label">${escapeHtml(label)}</span>
@@ -851,7 +904,12 @@ export class EventHandlerManager implements AppModule {
   private updateMobileMissionLabel(active: MissionPreset | null = loadStoredMissionPreset()): void {
     const item = document.getElementById('mobileMenuMission');
     const label = item?.querySelector('.mobile-menu-item-label');
-    if (label) label.textContent = active ? `Mission: ${active.shortLabel}` : 'Mission';
+    if (label) {
+      const activeCopy = active ? translatedMissionPreset(active) : null;
+      label.textContent = activeCopy
+        ? `${t('components.dashboardChrome.mission')}: ${activeCopy.shortLabel}`
+        : t('components.dashboardChrome.mission');
+    }
   }
 
   private toggleMissionPresetPopover(anchor: HTMLElement | null, mobile: boolean): void {
@@ -869,11 +927,12 @@ export class EventHandlerManager implements AppModule {
     const popover = document.createElement('div');
     popover.className = `mission-preset-popover${mobile ? ' mission-preset-popover--mobile' : ''}`;
     popover.setAttribute('role', 'dialog');
-    popover.setAttribute('aria-label', 'Mission presets');
+    popover.setAttribute('aria-label', t('components.dashboardChrome.missionTitle'));
     popover.tabIndex = -1;
 
     const cards = MISSION_PRESETS.map((preset) => {
       const selected = active?.id === preset.id;
+      const copy = translatedMissionPreset(preset);
       return `
         <button
           type="button"
@@ -883,8 +942,8 @@ export class EventHandlerManager implements AppModule {
         >
           <span class="mission-preset-card__icon">${escapeHtml(preset.icon)}</span>
           <span class="mission-preset-card__body">
-            <strong>${escapeHtml(preset.label)}</strong>
-            <small>${escapeHtml(preset.description)}</small>
+            <strong>${escapeHtml(copy.label)}</strong>
+            <small>${escapeHtml(copy.description)}</small>
           </span>
           <span class="mission-preset-card__check">${selected ? '✓' : ''}</span>
         </button>
@@ -894,12 +953,12 @@ export class EventHandlerManager implements AppModule {
     setTrustedHtml(popover, trustedHtml(`
       <div class="mission-preset-popover__header">
         <div>
-          <span>Mission</span>
-          <strong>${escapeHtml(active?.label ?? 'Choose Workspace')}</strong>
+          <span>${t('components.dashboardChrome.mission')}</span>
+          <strong>${escapeHtml(active ? translatedMissionPreset(active).label : t('components.dashboardChrome.chooseWorkspace'))}</strong>
         </div>
         <div class="mission-preset-popover__actions">
-          <button type="button" class="mission-preset-reset" data-mission-reset>Reset</button>
-          <button type="button" class="mission-preset-close" data-mission-close aria-label="Close mission presets">×</button>
+          <button type="button" class="mission-preset-reset" data-mission-reset>${t('components.dashboardChrome.reset')}</button>
+          <button type="button" class="mission-preset-close" data-mission-close aria-label="${t('components.dashboardChrome.closeMissionPresets')}">×</button>
         </div>
       </div>
       <div class="mission-preset-popover__list">${cards}</div>
@@ -1099,7 +1158,9 @@ export class EventHandlerManager implements AppModule {
     this.callbacks.syncDataFreshnessWithLayers();
     this.scheduleMissionDataRefresh();
     this.syncUrlState();
-    showToast(`Mission preset applied: ${applied.preset.label}`);
+    showToast(t('components.dashboardChrome.missionApplied', {
+      name: translatedMissionPreset(applied.preset).label,
+    }));
     this.renderMissionPresetControl();
     this.closeMissionPresetPopover();
   }
@@ -1131,7 +1192,7 @@ export class EventHandlerManager implements AppModule {
     this.callbacks.syncDataFreshnessWithLayers();
     this.scheduleMissionDataRefresh();
     this.syncUrlState();
-    showToast('Mission preset reset');
+    showToast(t('components.dashboardChrome.missionReset'));
     this.renderMissionPresetControl();
     this.closeMissionPresetPopover();
   }
@@ -1572,7 +1633,12 @@ export class EventHandlerManager implements AppModule {
     const el = document.getElementById('headerClock');
     if (!el) return;
     const tick = () => {
-      el.textContent = new Date().toUTCString().replace('GMT', 'UTC');
+      const formatted = new Intl.DateTimeFormat(document.documentElement.lang || 'zh-TW', {
+        dateStyle: 'medium',
+        timeStyle: 'medium',
+        timeZone: 'UTC',
+      }).format(new Date());
+      el.textContent = `${formatted} UTC`;
     };
     tick();
     this.clockIntervalId = setInterval(tick, 1000);
@@ -1905,6 +1971,12 @@ export class EventHandlerManager implements AppModule {
   }
 
   setupAuthWidget(): void {
+    if (!isOfficialWorldMonitorAppRuntime()) {
+      document.getElementById('authWidgetMount')?.setAttribute('hidden', '');
+      this.mobilePrimaryNav.setupAuth(null);
+      return;
+    }
+
     const modal = new AuthLauncher();
     this.ctx.authModal = modal;
 
@@ -2309,7 +2381,9 @@ export class EventHandlerManager implements AppModule {
       mapSection.classList.toggle('live-news-fullscreen', isFullscreen);
       document.body.classList.toggle('live-news-fullscreen-active', isFullscreen);
       setTrustedHtml(btn, trustedHtml(isFullscreen ? shrinkSvg : expandSvg, "legacy direct innerHTML migration"));
-      btn.title = isFullscreen ? 'Exit fullscreen' : 'Fullscreen';
+      btn.title = isFullscreen
+        ? t('components.liveNews.exitFullscreen')
+        : t('components.dashboardChrome.fullscreen');
       this.syncMapAfterLayoutChange();
     };
 

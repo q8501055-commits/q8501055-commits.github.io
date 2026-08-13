@@ -22,6 +22,10 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi, type Mock }
 
 import { initTestI18n } from './helpers/i18n.mts';
 
+beforeAll(() => {
+  window.location.href = 'https://worldmonitor.app/';
+});
+
 // Both aliased to the REAL exported interfaces rather than re-declared. A
 // hand-rolled shape here would let the fixtures drift from production silently;
 // this way a field added to either interface fails `npm run typecheck:dom-tests`

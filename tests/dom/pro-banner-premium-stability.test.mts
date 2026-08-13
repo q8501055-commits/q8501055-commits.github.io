@@ -112,6 +112,9 @@ vi.mock('@/services/widget-store', () => ({
   isWidgetFeatureEnabled: () => localUnlock.widgetFeature,
 }));
 vi.mock('@/services/i18n', () => ({ t: (key: string) => key }));
+vi.mock('@/config/web-origin', () => ({
+  isOfficialWorldMonitorAppRuntime: () => true,
+}));
 
 let showProBanner: typeof import('@/components/ProBanner').showProBanner;
 

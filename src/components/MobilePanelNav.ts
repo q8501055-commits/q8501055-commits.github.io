@@ -2,6 +2,7 @@ import { PANEL_CATEGORY_MAP, getVariantPanelCategories, getProPanelKeys } from '
 import { SITE_VARIANT } from '@/config';
 import { t } from '@/services/i18n';
 import type { PanelConfig } from '@/types';
+import { isOfficialWorldMonitorAppRuntime } from '@/config/web-origin';
 
 // Synthetic chip key — must not collide with PANEL_CATEGORY_MAP keys.
 const PRO_CATEGORY = '__pro__';
@@ -55,7 +56,7 @@ export class MobilePanelNav {
       { key: 'all', label: t('header.sourceRegionAll') },
       // PRO right after All: one tap surfaces the whole premium suite —
       // each panel renders its own unlock CTA (the mobile conversion path).
-      ...(this.proPanelKeys.size > 0
+      ...(isOfficialWorldMonitorAppRuntime() && this.proPanelKeys.size > 0
         ? [{ key: PRO_CATEGORY, label: `⚡ ${t('widgets.proBadge')}` }]
         : []),
       ...getVariantPanelCategories(settings, SITE_VARIANT)

@@ -2,6 +2,7 @@ import { subscribeAuthState, type AuthSession } from '@/services/auth-state';
 import { mountUserButton, openSignIn, openSignUp } from '@/services/clerk';
 import { t } from '@/services/i18n';
 import { setTrustedHtml, trustedHtml } from '@/utils/dom-utils';
+import { isOfficialWorldMonitorAppRuntime } from '@/config/web-origin';
 
 export class AuthHeaderWidget {
   private container: HTMLElement;
@@ -21,6 +22,11 @@ export class AuthHeaderWidget {
     this.onBillingClick = onBillingClick;
     this.container = document.createElement('div');
     this.container.className = 'auth-header-widget';
+
+    if (!isOfficialWorldMonitorAppRuntime()) {
+      this.container.hidden = true;
+      return;
+    }
 
     this.unsubscribeAuth = subscribeAuthState((state: AuthSession) => {
       if (state.isPending) {

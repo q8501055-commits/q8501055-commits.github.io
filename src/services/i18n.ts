@@ -2,6 +2,7 @@ import i18next from 'i18next';
 import LanguageDetector from 'i18next-browser-languagedetector';
 
 import { enqueueSentryCall } from '@/bootstrap/sentry-defer';
+import { isOfficialWorldMonitorAppHostname, isOfficialWorldMonitorAppRuntime } from '@/config/web-origin';
 import { readQueryLanguage, stripQueryLanguage } from '@/utils/i18n-url';
 
 // Keep only first-paint English strings in the entry chunk. The full English
@@ -37,8 +38,18 @@ const localeModules = import.meta.glob<TranslationDictionary>(
   ['../locales/*.json', '!../locales/en.shell.json'],
   { import: 'default' },
 );
+const selfHostedLocaleModules = import.meta.glob<TranslationDictionary>(
+  '../selfhost-locales/*.json',
+  { import: 'default' },
+);
 
 const RTL_LANGUAGES = new Set(['ar', 'fa']);
+const SELF_HOSTED_DEFAULT_LANGUAGE = 'zh-TW';
+
+function isSelfHostedBrowserRuntime(): boolean {
+  return typeof window !== 'undefined'
+    && !isOfficialWorldMonitorAppHostname(window.location.hostname);
+}
 
 function normalizeLanguage(lng: string): SupportedLanguage {
   const base = (lng || 'en').split('-')[0]?.toLowerCase() || 'en';
@@ -50,7 +61,10 @@ function normalizeLanguage(lng: string): SupportedLanguage {
 
 function applyDocumentDirection(lang: string): void {
   const base = lang.split('-')[0] || lang;
-  document.documentElement.setAttribute('lang', base === 'zh' ? 'zh-CN' : base);
+  const documentLanguage = base === 'zh'
+    ? (isSelfHostedBrowserRuntime() ? 'zh-TW' : 'zh-CN')
+    : base;
+  document.documentElement.setAttribute('lang', documentLanguage);
   if (RTL_LANGUAGES.has(base)) {
     document.documentElement.setAttribute('dir', 'rtl');
   } else {
@@ -65,7 +79,9 @@ async function ensureLanguageLoaded(lng: string): Promise<SupportedLanguage> {
   }
 
   let translation: TranslationDictionary;
-  const loader = localeModules[`../locales/${normalized}.json`];
+  const loader = normalized === 'zh' && isSelfHostedBrowserRuntime()
+    ? selfHostedLocaleModules['../selfhost-locales/zh.json']
+    : localeModules[`../locales/${normalized}.json`];
   if (!loader) {
     console.warn(`No locale file for "${normalized}", falling back to English`);
     const englishLoader = localeModules['../locales/en.json'];
@@ -144,8 +160,13 @@ function preloadEnglishTranslation(attempt = 0): void {
 // Initialize i18n
 export async function initI18n(): Promise<void> {
   if (i18next.isInitialized) {
-    const currentLanguage = normalizeLanguage(i18next.language || 'en');
+    const currentLanguage = isSelfHostedBrowserRuntime()
+      ? normalizeLanguage(SELF_HOSTED_DEFAULT_LANGUAGE)
+      : normalizeLanguage(i18next.language || 'en');
     await ensureLanguageLoaded(currentLanguage);
+    if (normalizeLanguage(i18next.language || 'en') !== currentLanguage) {
+      await i18next.changeLanguage(currentLanguage);
+    }
     applyDocumentDirection(i18next.language || currentLanguage);
     return;
   }
@@ -180,6 +201,13 @@ export async function initI18n(): Promise<void> {
     },
     cacheUserLanguage: () => { /* writes go through explicit changeLanguage() */ },
   });
+  detector.addDetector({
+    name: 'wmSelfHostedDefault',
+    lookup: () => isOfficialWorldMonitorAppHostname(window.location.hostname)
+      ? undefined
+      : SELF_HOSTED_DEFAULT_LANGUAGE,
+    cacheUserLanguage: () => { /* deployment default, not an explicit user choice */ },
+  });
 
   await i18next
     .use(detector)
@@ -195,12 +223,18 @@ export async function initI18n(): Promise<void> {
         escapeValue: false, // not needed for these simple strings
       },
       detection: {
-        order: ['wmQuery', 'wmExplicit', 'navigator'],
+        // Official WorldMonitor hosts preserve browser-language detection.
+        // Self-hosted deployments are a single-locale Taiwan Traditional
+        // Chinese edition, so their deployment policy outranks URL, stored,
+        // and browser language preferences.
+        order: ['wmSelfHostedDefault', 'wmQuery', 'wmExplicit', 'navigator'],
         caches: [], // never auto-write — only changeLanguage() persists
       },
     });
 
-  const detectedLanguage = normalizeLanguage(i18next.language || 'en');
+  const detectedLanguage = isSelfHostedBrowserRuntime()
+    ? normalizeLanguage(SELF_HOSTED_DEFAULT_LANGUAGE)
+    : normalizeLanguage(i18next.language || 'en');
   if (detectedLanguage === 'en') {
     preloadEnglishTranslation();
   } else {
@@ -213,6 +247,9 @@ export async function initI18n(): Promise<void> {
   }
 
   applyDocumentDirection(i18next.language || detectedLanguage);
+  if (detectedLanguage !== 'en') {
+    notifyLanguageResourcesLoaded(detectedLanguage);
+  }
 }
 
 // Helper to translate
@@ -229,7 +266,8 @@ export function t(key: string, options?: Record<string, unknown>): string {
 // initI18n() will fall through `wmExplicit` and detect from navigator.
 // We deliberately don't ship that helper now since no UI consumes it.
 export async function changeLanguage(lng: string): Promise<void> {
-  const normalized = await ensureLanguageLoaded(lng);
+  const requestedLanguage = isSelfHostedBrowserRuntime() ? SELF_HOSTED_DEFAULT_LANGUAGE : lng;
+  const normalized = await ensureLanguageLoaded(requestedLanguage);
   try { localStorage.setItem(EXPLICIT_LOCALE_KEY, normalized); } catch { /* private mode */ }
   await i18next.changeLanguage(normalized);
   applyDocumentDirection(normalized);
@@ -257,11 +295,12 @@ export function isRTL(): boolean {
 
 export function getLocale(): string {
   const lang = getCurrentLanguage();
-  const map: Record<string, string> = { en: 'en-US', bg: 'bg-BG', cs: 'cs-CZ', el: 'el-GR', fa: 'fa-IR', zh: 'zh-CN', pt: 'pt-BR', ja: 'ja-JP', ko: 'ko-KR', ro: 'ro-RO', tr: 'tr-TR', th: 'th-TH', vi: 'vi-VN', hi: 'hi-IN' };
+  if (lang === 'zh') return isSelfHostedBrowserRuntime() ? 'zh-TW' : 'zh-CN';
+  const map: Record<string, string> = { en: 'en-US', bg: 'bg-BG', cs: 'cs-CZ', el: 'el-GR', fa: 'fa-IR', pt: 'pt-BR', ja: 'ja-JP', ko: 'ko-KR', ro: 'ro-RO', tr: 'tr-TR', th: 'th-TH', vi: 'vi-VN', hi: 'hi-IN' };
   return map[lang] || lang;
 }
 
-export const LANGUAGES = [
+const ALL_LANGUAGES = [
   { code: 'en', label: 'English', flag: '🇬🇧' },
   { code: 'bg', label: 'Български', flag: '🇧🇬' },
   { code: 'ar', label: 'العربية', flag: '🇸🇦' },
@@ -289,3 +328,9 @@ export const LANGUAGES = [
   { code: 'vi', label: 'Tiếng Việt', flag: '🇻🇳' },
   { code: 'hi', label: 'हिन्दी', flag: '🇮🇳' },
 ];
+
+// The self-hosted edition intentionally exposes one coherent UI language.
+// Official WorldMonitor hosts retain the upstream multilingual selector.
+export const LANGUAGES = isOfficialWorldMonitorAppRuntime()
+  ? ALL_LANGUAGES
+  : [{ code: 'zh', label: '繁體中文（台灣）', flag: '🇹🇼' }];

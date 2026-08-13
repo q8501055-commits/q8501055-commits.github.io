@@ -6,6 +6,7 @@ import { safeHtmlToString, type SafeHtml } from '@/utils/sanitize';
 import { trackPanelResized } from '@/services/analytics';
 import { getAiFlowSettings } from '@/services/ai-flow-settings';
 import { getSecretState } from '@/services/runtime-config';
+import { isOfficialWorldMonitorAppRuntime } from '@/config/web-origin';
 import { PanelGateReason } from '@/services/panel-gating';
 import { openExternalUrl } from '@/services/external-navigation';
 import { lockSvg, upgradeSvg } from '@/components/gate-icons';
@@ -246,7 +247,11 @@ export class Panel {
       headerLeft.appendChild(this.newBadgeEl);
     }
 
-    if (options.premium && !getSecretState('WORLDMONITOR_API_KEY').present) {
+    if (
+      isOfficialWorldMonitorAppRuntime()
+      && options.premium
+      && !getSecretState('WORLDMONITOR_API_KEY').present
+    ) {
       const proBadge = h('span', { className: 'panel-pro-badge' }, t('premium.pro'));
       headerLeft.appendChild(proBadge);
     }

@@ -6,6 +6,10 @@
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { initTestI18n } from './helpers/i18n.mts';
+
+beforeAll(() => {
+  window.location.href = 'https://worldmonitor.app/';
+});
 import type { UnifiedSettingsConfig } from '@/components/UnifiedSettings';
 import type { ApiKeyInfo, CreateApiKeyResult } from '@/services/api-keys';
 import type { ApiPlanLimitNotice } from '@/services/api-plan-limit-notices';

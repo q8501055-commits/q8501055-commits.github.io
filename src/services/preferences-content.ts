@@ -207,7 +207,8 @@ export function renderPreferences(host: PreferencesHost): PreferencesResult {
   html += `<select class="unified-settings-select" id="us-map-theme">`;
   for (const opt of MAP_THEME_OPTIONS[currentProvider]) {
     const selected = opt.value === currentMapTheme ? ' selected' : '';
-    html += `<option value="${opt.value}"${selected}>${escapeHtml(opt.label)}</option>`;
+    const label = t(`preferences.mapThemeOptions.${opt.value}`, { defaultValue: opt.label });
+    html += `<option value="${opt.value}"${selected}>${escapeHtml(label)}</option>`;
   }
   html += `</select>`;
 
@@ -224,7 +225,8 @@ export function renderPreferences(host: PreferencesHost): PreferencesResult {
   html += `<select class="unified-settings-select" id="us-globe-visual-preset">`;
   for (const opt of GLOBE_VISUAL_PRESET_OPTIONS) {
     const selected = opt.value === currentPreset ? ' selected' : '';
-    html += `<option value="${opt.value}"${selected}>${escapeHtml(opt.label)}</option>`;
+    const label = t(`preferences.globePresetOptions.${opt.value}`, { defaultValue: opt.label });
+    html += `<option value="${opt.value}"${selected}>${escapeHtml(label)}</option>`;
   }
   html += `</select>`;
 

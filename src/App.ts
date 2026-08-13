@@ -167,6 +167,7 @@ import { startAccountAuthHandoff } from '@/app/account-auth-handoff';
 import { TierPreferenceHandoff } from '@/app/tier-preference-handoff';
 import { resolveUserRegion, resolvePreciseUserCoordinates, type PreciseCoordinates } from '@/utils/user-location';
 import { showProBanner } from '@/components/ProBanner';
+import { isOfficialWorldMonitorAppRuntime } from '@/config/web-origin';
 import { getAuthState, initAuthState, subscribeAuthState } from '@/services/auth-state';
 import {
   CLOUD_PREFS_APPLIED_EVENT,
@@ -1712,12 +1713,15 @@ export class App {
     const ogLocaleMap: Record<string, string> = {
       en: 'en_US', bg: 'bg_BG', cs: 'cs_CZ', fr: 'fr_FR', de: 'de_DE', el: 'el_GR',
       es: 'es_ES', hr: 'hr_HR', hu: 'hu_HU', it: 'it_IT', pl: 'pl_PL', pt: 'pt_BR',
-      nl: 'nl_NL', sv: 'sv_SE', ru: 'ru_RU', uk: 'uk_UA', ar: 'ar_SA', fa: 'fa_IR', zh: 'zh_CN',
+      nl: 'nl_NL', sv: 'sv_SE', ru: 'ru_RU', uk: 'uk_UA', ar: 'ar_SA', fa: 'fa_IR',
       ja: 'ja_JP', ko: 'ko_KR', ro: 'ro_RO', tr: 'tr_TR', th: 'th_TH', vi: 'vi_VN',
       hi: 'hi_IN',
     };
     const baseLang = (document.documentElement.lang || 'en').split('-')[0] || 'en';
-    setMeta('meta[property="og:locale"]', ogLocaleMap[baseLang] || `${baseLang}_${baseLang.toUpperCase()}`);
+    const ogLocale = baseLang === 'zh'
+      ? (isOfficialWorldMonitorAppRuntime() ? 'zh_CN' : 'zh_TW')
+      : (ogLocaleMap[baseLang] || `${baseLang}_${baseLang.toUpperCase()}`);
+    setMeta('meta[property="og:locale"]', ogLocale);
     const srH1 = document.querySelector('body > h1');
     if (srH1) srH1.textContent = t('shell.documentTitle');
     const aiFlow = getAiFlowSettings();
@@ -2066,7 +2070,9 @@ export class App {
     await this.panelLayout.init();
     markLcpDebug('wm:layout:init-complete');
     this.eventHandlers.setupSearchControls();
-    showProBanner(this.state.container);
+    if (isOfficialWorldMonitorAppRuntime()) {
+      showProBanner(this.state.container);
+    }
     this.updateConnectivityUi();
     window.addEventListener('online', this.handleConnectivityChange);
     window.addEventListener('offline', this.handleConnectivityChange);

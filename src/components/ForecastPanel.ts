@@ -26,25 +26,25 @@ interface ForecastSourceState {
 // "All Regions" — no filter applied. Forecasts whose region does not
 // classify (unknown or 'global') only appear under "All Regions".
 const FORECAST_REGIONS = [
-  { id: '', label: 'All Regions' },
-  { id: 'mena', label: 'MENA' },
-  { id: 'east-asia', label: 'East Asia' },
-  { id: 'europe', label: 'Europe' },
-  { id: 'south-asia', label: 'South Asia' },
-  { id: 'sub-saharan-africa', label: 'Africa' },
-  { id: 'latam', label: 'LatAm' },
-  { id: 'north-america', label: 'N. America' },
+  { id: '', labelKey: 'allRegions' },
+  { id: 'mena', labelKey: 'mena' },
+  { id: 'east-asia', labelKey: 'eastAsia' },
+  { id: 'europe', labelKey: 'europe' },
+  { id: 'south-asia', labelKey: 'southAsia' },
+  { id: 'sub-saharan-africa', labelKey: 'africa' },
+  { id: 'latam', labelKey: 'latam' },
+  { id: 'north-america', labelKey: 'northAmerica' },
 ] as const;
 
 const DOMAIN_LABELS: Record<string, string> = {
-  all: 'All',
-  conflict: 'Conflict',
-  market: 'Market',
-  supply_chain: 'Supply Chain',
-  political: 'Political',
-  military: 'Military',
-  cyber: 'Cyber',
-  infrastructure: 'Infra',
+  all: 'components.forecast.all',
+  conflict: 'components.forecast.conflict',
+  market: 'components.forecast.market',
+  supply_chain: 'components.forecast.supplyChain',
+  political: 'components.forecast.political',
+  military: 'components.forecast.military',
+  cyber: 'components.forecast.cyber',
+  infrastructure: 'components.forecast.infrastructure',
 };
 
 const DOMAIN_COLORS: Record<string, string> = {
@@ -285,7 +285,7 @@ export class ForecastPanel extends Panel {
   private expandedTheaterId: string | null = null;
 
   constructor() {
-    super({ id: 'forecast', title: 'AI Forecasts', showCount: true, infoTooltip: t('components.forecast.infoTooltip') });
+    super({ id: 'forecast', title: t('components.forecast.title'), showCount: true, infoTooltip: t('components.forecast.infoTooltip') });
     injectStyles();
     this.content.addEventListener('click', (e) => {
       const target = e.target as HTMLElement;
@@ -452,10 +452,10 @@ export class ForecastPanel extends Panel {
   private render(): void {
     const visibleForecasts = this.getVisibleForecasts();
     const filtersHtml = DOMAINS.map(d =>
-      `<button class="fc-filter${d === this.activeDomain ? ' fc-active' : ''}" data-fc-domain="${d}">${DOMAIN_LABELS[d]}</button>`
+      `<button class="fc-filter${d === this.activeDomain ? ' fc-active' : ''}" data-fc-domain="${d}">${t(DOMAIN_LABELS[d] ?? d)}</button>`
     ).join('');
     const regionsHtml = FORECAST_REGIONS.map(r =>
-      `<button class="fc-filter${r.id === this.selectedRegion ? ' fc-active' : ''}" data-fc-region="${escapeHtml(r.id)}">${escapeHtml(r.label)}</button>`
+      `<button class="fc-filter${r.id === this.selectedRegion ? ' fc-active' : ''}" data-fc-region="${escapeHtml(r.id)}">${t(`components.forecast.${r.labelKey}`)}</button>`
     ).join('');
 
     if (visibleForecasts.length === 0) {
@@ -467,12 +467,12 @@ export class ForecastPanel extends Panel {
       // is broken.
       const hasAnyForecasts = this.forecasts.length > 0;
       const emptyCopy = hasAnyForecasts
-        ? 'No forecasts match the current filter'
+        ? t('components.forecast.noMatch')
         : this.sourceState.degraded
-          ? 'Forecast backend unavailable'
+          ? t('components.forecast.backendUnavailable')
           : this.sourceState.error
-            ? 'Forecast request failed'
-            : 'No forecasts available';
+            ? t('components.forecast.requestFailed')
+            : t('components.forecast.noneAvailable');
       const sourceHtml = this.renderSourceNotice();
       this.setSafeContent(unsafeRawHtml(`
         <div class="fc-panel">
@@ -490,7 +490,7 @@ export class ForecastPanel extends Panel {
       : visibleForecasts.filter(f => f.domain === this.activeDomain);
 
     const nexusHtml = this.theaters.length > 0
-      ? `<div class="fc-nexus">${this.renderNexus()}</div><div class="fc-section-label">Probability Bets</div>`
+      ? `<div class="fc-nexus">${this.renderNexus()}</div><div class="fc-section-label">${t('components.forecast.probabilityBets')}</div>`
       : '';
     const tableHtml = this.renderProbTable(filtered);
     const sourceHtml = this.renderSourceNotice();
@@ -510,8 +510,8 @@ export class ForecastPanel extends Panel {
     if (!this.sourceState.degraded && !this.sourceState.stale && !this.sourceState.error) return '';
     const errorDetail = this.sourceState.degraded ? '' : this.sourceState.error.replace(/_/g, ' ');
     const parts = [
-      this.sourceState.degraded ? 'Forecast source degraded' : '',
-      this.sourceState.stale ? 'stale cache' : '',
+      this.sourceState.degraded ? t('components.forecast.sourceDegraded') : '',
+      this.sourceState.stale ? t('components.forecast.staleCache') : '',
       errorDetail,
     ].filter(Boolean);
     return `<div class="fc-source-notice">${escapeHtml(parts.join(' · '))}</div>`;
@@ -525,21 +525,21 @@ export class ForecastPanel extends Panel {
       ? this.renderTheaterDetail(this.theaters.find(t => t.theaterId === this.expandedTheaterId) ?? null)
       : '';
     return `
-      <div class="fc-section-label" style="padding-top:4px">Active Theaters</div>
+      <div class="fc-section-label" style="padding-top:4px">${t('components.forecast.activeTheaters')}</div>
       <div class="fc-theater-grid">${cards}</div>
       ${detail}
     `;
   }
 
-  private renderTheaterCard(t: SimulationTheater): string {
-    const domain = STATE_KIND_DOMAIN[t.stateKind] || 'supply_chain';
+  private renderTheaterCard(theater: SimulationTheater): string {
+    const domain = STATE_KIND_DOMAIN[theater.stateKind] || 'supply_chain';
     const color = DOMAIN_COLORS[domain] || '#58a6ff';
-    const catLabel = DOMAIN_LABELS[domain] || domain;
-    const dominantPath = t.topPaths[0];
+    const catLabel = t(DOMAIN_LABELS[domain] || domain);
+    const dominantPath = theater.topPaths[0];
     const conf = dominantPath?.confidence ?? 0;
     const confPct = Math.round(conf * 100);
     const confColor = conf >= 0.65 ? '#3fb950' : conf >= 0.45 ? '#d29922' : '#e05252';
-    const isSelected = this.expandedTheaterId === t.theaterId;
+    const isSelected = this.expandedTheaterId === theater.theaterId;
 
     // SVG gauge: circumference for r=15 is 94.25; stroke-dashoffset = circ * (1 - conf)
     const r = 15;
@@ -549,9 +549,9 @@ export class ForecastPanel extends Panel {
     return `
       <div class="fc-theater-card${isSelected ? ' fc-theater-selected' : ''}"
            style="--fc-theater-color:${color}"
-           data-fc-theater="${escapeHtml(t.theaterId)}">
+           data-fc-theater="${escapeHtml(theater.theaterId)}">
         <div class="fc-theater-top">
-          <div class="fc-theater-name">${escapeHtml(t.theaterLabel)}</div>
+          <div class="fc-theater-name">${escapeHtml(theater.theaterLabel)}</div>
           <div class="fc-gauge-wrap">
             <svg class="fc-gauge-svg" viewBox="0 0 34 34">
               <circle class="fc-gauge-bg" cx="17" cy="17" r="${r}"/>
@@ -569,17 +569,19 @@ export class ForecastPanel extends Panel {
     `;
   }
 
-  private renderTheaterDetail(t: SimulationTheater | null): string {
-    if (!t) return '';
-    const domain = STATE_KIND_DOMAIN[t.stateKind] || 'supply_chain';
+  private renderTheaterDetail(theater: SimulationTheater | null): string {
+    if (!theater) return '';
+    const domain = STATE_KIND_DOMAIN[theater.stateKind] || 'supply_chain';
     const color = DOMAIN_COLORS[domain] || '#58a6ff';
-    const catLabel = DOMAIN_LABELS[domain] || domain;
+    const catLabel = t(DOMAIN_LABELS[domain] || domain);
 
-    const pathsHtml = t.topPaths.map(p => {
+    const pathsHtml = theater.topPaths.map(p => {
       const pctColor = p.confidence >= 0.65 ? '#3fb950' : p.confidence >= 0.45 ? '#d29922' : '#e05252';
       const actors = p.keyActors.map(a => `<span class="fc-actor-chip">${escapeHtml(a)}</span>`).join('');
       const typeTag = p.pathId ? `<span class="fc-path-type fc-path-type-${escapeHtml(p.pathId)}">${escapeHtml(PATH_ID_LABELS[p.pathId] ?? p.pathId)}</span>` : '';
-      const confText = p.confidence > 0 ? `${Math.round(p.confidence * 100)}% confidence` : '—';
+      const confText = p.confidence > 0
+        ? t('components.forecast.confidencePercent', { value: Math.round(p.confidence * 100) })
+        : '—';
       return `
         <div class="fc-path-card">
           <div class="fc-path-label">${typeTag}${escapeHtml(p.label)}</div>
@@ -591,35 +593,35 @@ export class ForecastPanel extends Panel {
       `;
     }).join('');
 
-    const reactions = t.dominantReactions.map(r =>
+    const reactions = theater.dominantReactions.map(r =>
       `<div class="fc-footer-item fc-react-item">${escapeHtml(r)}</div>`
     ).join('');
-    const stabilizers = t.stabilizers.map(s =>
+    const stabilizers = theater.stabilizers.map(s =>
       `<div class="fc-footer-item fc-stab-item">${escapeHtml(s)}</div>`
     ).join('');
-    const invalidators = t.invalidators.map(s =>
+    const invalidators = theater.invalidators.map(s =>
       `<div class="fc-footer-item fc-inval-item">${escapeHtml(s)}</div>`
     ).join('');
 
     return `
       <div class="fc-theater-detail">
         <div class="fc-theater-detail-hdr">
-          <span class="fc-theater-detail-name">${escapeHtml(t.theaterLabel)}</span>
+          <span class="fc-theater-detail-name">${escapeHtml(theater.theaterLabel)}</span>
           <span class="fc-cat-tag" style="background:${color}1f;color:${color};border:1px solid ${color}47">${escapeHtml(catLabel)}</span>
         </div>
         <div class="fc-theater-paths">${pathsHtml}</div>
         ${reactions || stabilizers || invalidators ? `
           <div class="fc-theater-footer">
             <div class="fc-theater-footer-section">
-              <div class="fc-footer-title">Reactions</div>
+              <div class="fc-footer-title">${t('components.forecast.reactions')}</div>
               ${reactions || '<div class="fc-footer-item" style="opacity:0.4">—</div>'}
             </div>
             <div class="fc-theater-footer-section">
-              <div class="fc-footer-title">Stabilizers</div>
+              <div class="fc-footer-title">${t('components.forecast.stabilizers')}</div>
               ${stabilizers || '<div class="fc-footer-item" style="opacity:0.4">—</div>'}
             </div>
             <div class="fc-theater-footer-section">
-              <div class="fc-footer-title">Invalidators</div>
+              <div class="fc-footer-title">${t('components.forecast.invalidators')}</div>
               ${invalidators || '<div class="fc-footer-item" style="opacity:0.4">—</div>'}
             </div>
           </div>
@@ -632,10 +634,10 @@ export class ForecastPanel extends Panel {
 
   private renderProbTable(forecasts: Forecast[]): string {
     if (forecasts.length === 0) {
-      return '<div class="fc-empty">No forecasts for this filter</div>';
+      return `<div class="fc-empty">${t('components.forecast.noFilterResults')}</div>`;
     }
     const header = `<div class="fc-prob-hdr">
-      <span>Forecast</span><span>Probability</span><span>Trend</span><span>Domain</span>
+      <span>${t('components.forecast.forecast')}</span><span>${t('components.forecast.probability')}</span><span>${t('components.forecast.trend')}</span><span>${t('components.forecast.domain')}</span>
     </div>`;
     const rows = forecasts.map(f => this.renderProbRow(f)).join('');
     return `<div class="fc-prob-table">${header}${rows}</div>`;
@@ -645,9 +647,13 @@ export class ForecastPanel extends Panel {
     const pct      = Math.round((f.probability || 0) * 100);
     const domain   = f.domain || 'conflict';
     const catColor = DOMAIN_COLORS[domain] || '#7d8590';
-    const catLabel = DOMAIN_LABELS[domain] || domain;
+    const catLabel = t(DOMAIN_LABELS[domain] || domain);
     const probColor = pct >= 60 ? '#3fb950' : pct >= 40 ? '#d29922' : '#e05252';
-    const trendText  = f.trend === 'rising' ? '↑ rising' : f.trend === 'falling' ? '↓ falling' : '→ stable';
+    const trendText  = f.trend === 'rising'
+      ? `↑ ${t('components.forecast.rising')}`
+      : f.trend === 'falling'
+        ? `↓ ${t('components.forecast.falling')}`
+        : `→ ${t('components.forecast.stable')}`;
     const trendColor = f.trend === 'rising' ? '#3fb950' : f.trend === 'falling' ? '#e05252' : '#7d8590';
 
     const sigs = f.signals || [];
@@ -685,8 +691,8 @@ export class ForecastPanel extends Panel {
           </span>
         </div>
         <div class="fc-toggle-row">
-          <span class="fc-toggle" data-fc-toggle="detail-${escapeHtml(f.id)}">Analysis</span>
-          ${sigs.length > 0 ? `<span class="fc-toggle" data-fc-toggle="signals-${escapeHtml(f.id)}">Signals (${sigs.length})</span>` : ''}
+          <span class="fc-toggle" data-fc-toggle="detail-${escapeHtml(f.id)}">${t('components.forecast.analysis')}</span>
+          ${sigs.length > 0 ? `<span class="fc-toggle" data-fc-toggle="signals-${escapeHtml(f.id)}">${t('components.forecast.signals')} (${sigs.length})</span>` : ''}
         </div>
         <div class="fc-detail fc-hidden" data-fc-panel="detail-${escapeHtml(f.id)}">${f.caseFile ? this.renderDetailBody(f) : ''}</div>
         ${signalsHtml ? `<div class="fc-signals fc-hidden" data-fc-panel="signals-${escapeHtml(f.id)}">${signalsHtml}</div>` : ''}
@@ -709,13 +715,15 @@ export class ForecastPanel extends Panel {
 
     if (demoted) {
       barColor = '#e05252';
-      labelText = `AI flag: dropped · −${adjPct}%`;
+      labelText = t('components.forecast.aiDropped', { value: adjPct });
     } else if (adj > 0) {
       barColor = conf >= 0.70 ? '#3fb950' : '#d29922';
-      labelText = conf < 0.70 ? `AI signal (moderate) · +${adjPct}%` : `AI signal · +${adjPct}%`;
+      labelText = conf < 0.70
+        ? t('components.forecast.aiSignalModerate', { value: adjPct })
+        : t('components.forecast.aiSignal', { value: adjPct });
     } else {
       barColor = '#ea580c';
-      labelText = `AI caution · −${adjPct}%`;
+      labelText = t('components.forecast.aiCaution', { value: adjPct });
     }
 
     // Width encodes sim-path confidence for positive adjustments (at least 20% so bar is visible).
@@ -734,13 +742,13 @@ export class ForecastPanel extends Panel {
     const adj = f.simulationAdjustment ?? 0;
     const demoted = f.demotedBySimulation ?? false;
     if (demoted) {
-      return `<span class="fc-sim-chip fc-sim-chip--skeptical">AI skeptical</span>`;
+      return `<span class="fc-sim-chip fc-sim-chip--skeptical">${t('components.forecast.aiSkeptical')}</span>`;
     }
     if (adj === 0) return '';
     if (adj > 0) {
-      return `<span class="fc-sim-chip fc-sim-chip--backed">AI backed</span>`;
+      return `<span class="fc-sim-chip fc-sim-chip--backed">${t('components.forecast.aiBacked')}</span>`;
     }
-    return `<span class="fc-sim-chip fc-sim-chip--flagged">AI flagged</span>`;
+    return `<span class="fc-sim-chip fc-sim-chip--flagged">${t('components.forecast.aiFlagged')}</span>`;
   }
 
   // ── Detail sections (shared by rows) ────────────────────────────────────
@@ -752,7 +760,7 @@ export class ForecastPanel extends Panel {
     if (f.scenario) {
       sections.push(`
         <div class="fc-section">
-          <div class="fc-section-title">Executive View</div>
+          <div class="fc-section-title">${t('components.forecast.executiveView')}</div>
           <div class="fc-section-copy fc-scenario">${escapeHtml(f.scenario)}</div>
         </div>
       `);
@@ -760,7 +768,7 @@ export class ForecastPanel extends Panel {
     if (caseFile?.baseCase) {
       sections.push(`
         <div class="fc-section">
-          <div class="fc-section-title">Base Case</div>
+          <div class="fc-section-title">${t('components.forecast.baseCase')}</div>
           <div class="fc-section-copy">${escapeHtml(caseFile.baseCase)}</div>
         </div>
       `);
@@ -768,7 +776,7 @@ export class ForecastPanel extends Panel {
     if (caseFile?.changeSummary || caseFile?.changeItems?.length) {
       sections.push(`
         <div class="fc-section">
-          <div class="fc-section-title">What Changed</div>
+          <div class="fc-section-title">${t('components.forecast.whatChanged')}</div>
           ${caseFile?.changeSummary ? `<div class="fc-section-copy">${escapeHtml(caseFile.changeSummary)}</div>` : ''}
           ${caseFile?.changeItems?.length ? this.renderList(caseFile.changeItems) : ''}
         </div>
@@ -777,27 +785,27 @@ export class ForecastPanel extends Panel {
     if (caseFile?.worldState?.summary || caseFile?.worldState?.activePressures?.length) {
       sections.push(`
         <div class="fc-section">
-          <div class="fc-section-title">World State</div>
+          <div class="fc-section-title">${t('components.forecast.worldState')}</div>
           ${caseFile?.worldState?.summary ? `<div class="fc-section-copy">${escapeHtml(caseFile.worldState.summary)}</div>` : ''}
-          ${caseFile?.worldState?.activePressures?.length ? `<div class="fc-section-copy"><strong>Pressures:</strong></div>${this.renderList(caseFile.worldState.activePressures)}` : ''}
-          ${caseFile?.worldState?.stabilizers?.length ? `<div class="fc-section-copy"><strong>Stabilizers:</strong></div>${this.renderList(caseFile.worldState.stabilizers)}` : ''}
-          ${caseFile?.worldState?.keyUnknowns?.length ? `<div class="fc-section-copy"><strong>Key unknowns:</strong></div>${this.renderList(caseFile.worldState.keyUnknowns)}` : ''}
+          ${caseFile?.worldState?.activePressures?.length ? `<div class="fc-section-copy"><strong>${t('components.forecast.pressures')}：</strong></div>${this.renderList(caseFile.worldState.activePressures)}` : ''}
+          ${caseFile?.worldState?.stabilizers?.length ? `<div class="fc-section-copy"><strong>${t('components.forecast.stabilizers')}：</strong></div>${this.renderList(caseFile.worldState.stabilizers)}` : ''}
+          ${caseFile?.worldState?.keyUnknowns?.length ? `<div class="fc-section-copy"><strong>${t('components.forecast.keyUnknowns')}：</strong></div>${this.renderList(caseFile.worldState.keyUnknowns)}` : ''}
         </div>
       `);
     }
     if (caseFile?.escalatoryCase || caseFile?.contrarianCase) {
       sections.push(`
         <div class="fc-section">
-          <div class="fc-section-title">Alternative Paths</div>
-          ${caseFile?.escalatoryCase ? `<div class="fc-section-copy"><strong>Escalatory:</strong> ${escapeHtml(caseFile.escalatoryCase)}</div>` : ''}
-          ${caseFile?.contrarianCase ? `<div class="fc-section-copy"><strong>Contrarian:</strong> ${escapeHtml(caseFile.contrarianCase)}</div>` : ''}
+          <div class="fc-section-title">${t('components.forecast.alternativePaths')}</div>
+          ${caseFile?.escalatoryCase ? `<div class="fc-section-copy"><strong>${t('components.forecast.escalatory')}：</strong> ${escapeHtml(caseFile.escalatoryCase)}</div>` : ''}
+          ${caseFile?.contrarianCase ? `<div class="fc-section-copy"><strong>${t('components.forecast.contrarian')}：</strong> ${escapeHtml(caseFile.contrarianCase)}</div>` : ''}
         </div>
       `);
     }
     if (caseFile?.branches?.length) {
       sections.push(`
         <div class="fc-section">
-          <div class="fc-section-title">Simulated Branches</div>
+          <div class="fc-section-title">${t('components.forecast.simulatedBranches')}</div>
           ${this.renderBranches(caseFile.branches)}
         </div>
       `);
@@ -805,7 +813,7 @@ export class ForecastPanel extends Panel {
     if (caseFile?.supportingEvidence?.length) {
       sections.push(`
         <div class="fc-section">
-          <div class="fc-section-title">Supporting Evidence</div>
+          <div class="fc-section-title">${t('components.forecast.supportingEvidence')}</div>
           ${this.renderEvidence(caseFile.supportingEvidence)}
         </div>
       `);
@@ -813,7 +821,7 @@ export class ForecastPanel extends Panel {
     if (caseFile?.counterEvidence?.length) {
       sections.push(`
         <div class="fc-section">
-          <div class="fc-section-title">Counter Evidence</div>
+          <div class="fc-section-title">${t('components.forecast.counterEvidence')}</div>
           ${this.renderEvidence(caseFile.counterEvidence)}
         </div>
       `);
@@ -821,7 +829,7 @@ export class ForecastPanel extends Panel {
     if (caseFile?.triggers?.length) {
       sections.push(`
         <div class="fc-section">
-          <div class="fc-section-title">Signals To Watch</div>
+          <div class="fc-section-title">${t('components.forecast.signalsToWatch')}</div>
           ${this.renderList(caseFile.triggers)}
         </div>
       `);
@@ -829,14 +837,14 @@ export class ForecastPanel extends Panel {
     if (caseFile?.actors?.length) {
       sections.push(`
         <div class="fc-section">
-          <div class="fc-section-title">Actors</div>
+          <div class="fc-section-title">${t('components.forecast.actors')}</div>
           ${this.renderActors(caseFile.actors)}
         </div>
       `);
     } else if (caseFile?.actorLenses?.length) {
       sections.push(`
         <div class="fc-section">
-          <div class="fc-section-title">Actor Lenses</div>
+          <div class="fc-section-title">${t('components.forecast.actorLenses')}</div>
           ${this.renderList(caseFile.actorLenses)}
         </div>
       `);
@@ -844,23 +852,23 @@ export class ForecastPanel extends Panel {
     if (f.perspectives?.strategic) {
       sections.push(`
         <div class="fc-section">
-          <div class="fc-section-title">Perspectives</div>
+          <div class="fc-section-title">${t('components.forecast.perspectives')}</div>
           <div class="fc-perspectives">
-            <div class="fc-perspective"><strong>Strategic:</strong> ${escapeHtml(f.perspectives.strategic)}</div>
-            <div class="fc-perspective"><strong>Regional:</strong> ${escapeHtml(f.perspectives.regional || '')}</div>
-            <div class="fc-perspective"><strong>Contrarian:</strong> ${escapeHtml(f.perspectives.contrarian || '')}</div>
+            <div class="fc-perspective"><strong>${t('components.forecast.strategic')}：</strong> ${escapeHtml(f.perspectives.strategic)}</div>
+            <div class="fc-perspective"><strong>${t('components.forecast.regional')}：</strong> ${escapeHtml(f.perspectives.regional || '')}</div>
+            <div class="fc-perspective"><strong>${t('components.forecast.contrarian')}：</strong> ${escapeHtml(f.perspectives.contrarian || '')}</div>
           </div>
         </div>
       `);
     }
 
     const chips = [
-      f.calibration?.marketTitle ? `Market: ${f.calibration.marketTitle} (${Math.round((f.calibration.marketPrice || 0) * 100)}%)` : '',
-      typeof f.priorProbability === 'number' ? `Prior: ${Math.round(f.priorProbability * 100)}%` : '',
-      f.cascades?.length ? `Cascades: ${f.cascades.length}` : '',
+      f.calibration?.marketTitle ? `${t('components.forecast.market')}: ${f.calibration.marketTitle} (${Math.round((f.calibration.marketPrice || 0) * 100)}%)` : '',
+      typeof f.priorProbability === 'number' ? `${t('components.forecast.prior')}: ${Math.round(f.priorProbability * 100)}%` : '',
+      f.cascades?.length ? `${t('components.forecast.cascades')}: ${f.cascades.length}` : '',
     ].filter(Boolean);
     if (chips.length > 0) {
-      sections.push(`<div class="fc-section"><div class="fc-section-title">Context</div><div class="fc-chip-row">${chips.map(c => `<span class="fc-chip">${escapeHtml(c)}</span>`).join('')}</div></div>`);
+      sections.push(`<div class="fc-section"><div class="fc-section-title">${t('components.forecast.context')}</div><div class="fc-chip-row">${chips.map(c => `<span class="fc-chip">${escapeHtml(c)}</span>`).join('')}</div></div>`);
     }
 
     return `<div class="fc-detail-grid">${sections.join('')}</div>`;
@@ -892,16 +900,16 @@ export class ForecastPanel extends Panel {
     return `<div class="fc-list-block">${items.map(actor => {
       const chips = [
         actor.category ? actor.category : '',
-        typeof actor.influenceScore === 'number' ? `Influence ${Math.round(actor.influenceScore * 100)}%` : '',
+        typeof actor.influenceScore === 'number' ? `${t('components.forecast.influence')} ${Math.round(actor.influenceScore * 100)}%` : '',
       ].filter(Boolean).map(chip => `<span class="fc-chip">${escapeHtml(chip)}</span>`).join('');
       return `
         <div class="fc-section-copy">
-          <strong>${escapeHtml(actor.name || 'Actor')}</strong>
+          <strong>${escapeHtml(actor.name || t('components.forecast.actor'))}</strong>
           ${chips ? `<div class="fc-chip-row" style="margin-top:4px;">${chips}</div>` : ''}
           ${actor.role ? `<div class="fc-list-item">${escapeHtml(actor.role)}</div>` : ''}
-          ${actor.objectives?.[0] ? `<div class="fc-list-item"><strong>Objective:</strong> ${escapeHtml(actor.objectives[0])}</div>` : ''}
-          ${actor.constraints?.[0] ? `<div class="fc-list-item"><strong>Constraint:</strong> ${escapeHtml(actor.constraints[0])}</div>` : ''}
-          ${actor.likelyActions?.[0] ? `<div class="fc-list-item"><strong>Likely action:</strong> ${escapeHtml(actor.likelyActions[0])}</div>` : ''}
+          ${actor.objectives?.[0] ? `<div class="fc-list-item"><strong>${t('components.forecast.objective')}：</strong> ${escapeHtml(actor.objectives[0])}</div>` : ''}
+          ${actor.constraints?.[0] ? `<div class="fc-list-item"><strong>${t('components.forecast.constraint')}：</strong> ${escapeHtml(actor.constraints[0])}</div>` : ''}
+          ${actor.likelyActions?.[0] ? `<div class="fc-list-item"><strong>${t('components.forecast.likelyAction')}：</strong> ${escapeHtml(actor.likelyActions[0])}</div>` : ''}
         </div>
       `;
     }).join('')}</div>`;
@@ -918,7 +926,7 @@ export class ForecastPanel extends Panel {
     if (!items || items.length === 0) return '';
     return `<div class="fc-list-block">${items.map(branch => {
       const projected = typeof branch.projectedProbability === 'number'
-        ? `<span class="fc-chip">Projected ${Math.round(branch.projectedProbability * 100)}%</span>`
+        ? `<span class="fc-chip">${t('components.forecast.projected')} ${Math.round(branch.projectedProbability * 100)}%</span>`
         : '';
       const rounds = (branch.rounds || []).slice(0, 3).map(round => {
         const copy = [(round.developments || []).slice(0, 2).join(' '), (round.actorMoves || []).slice(0, 1).join(' ')].filter(Boolean).join(' ');
@@ -926,10 +934,10 @@ export class ForecastPanel extends Panel {
       }).join('');
       return `
         <div class="fc-section-copy">
-          <strong>${escapeHtml(branch.title || branch.kind || 'Branch')}</strong>
+          <strong>${escapeHtml(branch.title || branch.kind || t('components.forecast.branch'))}</strong>
           <div class="fc-chip-row" style="margin-top:4px;">${projected}</div>
           ${branch.summary ? `<div class="fc-list-item">${escapeHtml(branch.summary)}</div>` : ''}
-          ${branch.outcome ? `<div class="fc-list-item"><strong>Outcome:</strong> ${escapeHtml(branch.outcome)}</div>` : ''}
+          ${branch.outcome ? `<div class="fc-list-item"><strong>${t('components.forecast.outcome')}：</strong> ${escapeHtml(branch.outcome)}</div>` : ''}
           ${rounds}
         </div>
       `;

@@ -390,9 +390,9 @@ export class MapComponent {
     const controls = document.createElement('div');
     controls.className = 'map-controls';
     setTrustedHtml(controls, trustedHtml(`
-      <button class="map-control-btn" data-action="zoom-in" aria-label="Zoom in">+</button>
-      <button class="map-control-btn" data-action="zoom-out" aria-label="Zoom out">−</button>
-      <button class="map-control-btn" data-action="reset" aria-label="Reset rotation">⟲</button>
+      <button class="map-control-btn" data-action="zoom-in" aria-label="${t('components.deckgl.zoomIn')}">+</button>
+      <button class="map-control-btn" data-action="zoom-out" aria-label="${t('components.deckgl.zoomOut')}">−</button>
+      <button class="map-control-btn" data-action="reset" aria-label="${t('components.deckgl.resetView')}">⟲</button>
     `, "legacy direct innerHTML migration"));
 
     controls.addEventListener('click', (e) => {
@@ -417,11 +417,11 @@ export class MapComponent {
       { value: '24h', label: '24H' },
       { value: '48h', label: '48H' },
       { value: '7d', label: '7D' },
-      { value: 'all', label: 'ALL' },
+      { value: 'all', label: t('common.all') },
     ];
 
     setTrustedHtml(slider, trustedHtml(`
-      <span class="time-slider-label">TIME RANGE</span>
+      <span class="time-slider-label">${t('components.dashboardChrome.timeRange')}</span>
       <div class="time-slider-buttons">
         ${ranges
         .map(
@@ -569,7 +569,7 @@ export class MapComponent {
 
     layers.forEach((layer) => {
       const layerLabel = this.getLayerControlLabel(layer);
-      const explainLabel = `Explain ${layerLabel} layer`;
+      const explainLabel = `${t('components.deckgl.layerGuide')}: ${layerLabel}`;
       const row = document.createElement('div');
       row.className = 'layer-toggle-row';
       row.dataset.layer = layer;
@@ -692,7 +692,7 @@ export class MapComponent {
     const helpHeader = `
       <div class="layer-help-header">
         <span>${t('components.deckgl.layerHelp.title')}</span>
-        <button class="layer-help-close" aria-label="Close">×</button>
+        <button class="layer-help-close" aria-label="${t('common.close')}">×</button>
       </div>
     `;
 
@@ -3240,7 +3240,7 @@ export class MapComponent {
     ].join(';');
     const closeBtn = document.createElement('button');
     closeBtn.style.cssText = 'position:absolute;top:4px;right:4px;background:none;border:none;color:#888;cursor:pointer;font-size:calc(14px * var(--wm-panel-effective-scale, 1));line-height:1;padding:2px 4px;';
-    closeBtn.setAttribute('aria-label', 'Close');
+    closeBtn.setAttribute('aria-label', t('common.close'));
     closeBtn.textContent = '×';
     closeBtn.addEventListener('click', () => tooltip.remove());
     tooltip.appendChild(closeBtn);

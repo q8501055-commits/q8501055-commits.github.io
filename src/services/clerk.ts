@@ -23,6 +23,7 @@
 
 import type { Clerk } from '@clerk/clerk-js';
 import { enqueueSentryCall } from '@/bootstrap/sentry-defer';
+import { isOfficialWorldMonitorAppRuntime } from '@/config/web-origin';
 
 type ClerkInstance = Clerk;
 type ClerkSession = NonNullable<ClerkInstance['session']>;
@@ -44,7 +45,7 @@ const PUBLISHABLE_KEY = readPublishableKey();
  * the key is absent and free users would never see the upsell).
  */
 export function isClerkAuthEnabled(): boolean {
-  return Boolean(PUBLISHABLE_KEY);
+  return Boolean(PUBLISHABLE_KEY) && isOfficialWorldMonitorAppRuntime();
 }
 
 let clerkInstance: ClerkInstance | null = null;
@@ -229,6 +230,7 @@ function loadClerkUmd(publishableKey: string): Promise<void> {
  * Idempotent — repeated calls return the same in-flight promise.
  */
 export async function initClerk(): Promise<void> {
+  if (!isOfficialWorldMonitorAppRuntime()) return;
   if (clerkInstance) return;
   if (loadPromise) return loadPromise;
   if (!PUBLISHABLE_KEY) {
@@ -277,6 +279,7 @@ export async function initClerk(): Promise<void> {
  * either return the in-flight promise or kick off the load early.
  */
 export function scheduleClerkLoad(): void {
+  if (!isOfficialWorldMonitorAppRuntime()) return;
   if (clerkInstance || loadPromise || loadScheduled) return;
   if (!PUBLISHABLE_KEY) return;
   if (typeof window === 'undefined') return;
@@ -411,6 +414,7 @@ export function runClerkSurfaceOpen(
 }
 
 function openClerkSurface(action: 'open-sign-in' | 'open-sign-up'): void {
+  if (!isOfficialWorldMonitorAppRuntime()) return;
   const open = action === 'open-sign-in'
     ? () => clerkInstance?.openSignIn({ appearance: getAppearance() })
     : () => clerkInstance?.openSignUp({ appearance: getAppearance() });
@@ -638,6 +642,7 @@ async function fetchClerkToken(session: ClerkSession, skipCache = false): Promis
 }
 
 export async function getClerkToken(): Promise<string | null> {
+  if (!isOfficialWorldMonitorAppRuntime()) return null;
   const now = Date.now();
   const clockState = _clerkClockState;
   const calibrationBackoffActive = clockState.kind !== 'retry-after'
@@ -796,6 +801,7 @@ export function __setClerkInstanceForTests(instance: ClerkInstance | null): void
 
 /** Get current Clerk user metadata. Returns null if signed out. */
 export function getCurrentClerkUser(): { id: string; name: string; email: string; image: string | null; plan: 'free' | 'pro' } | null {
+  if (!isOfficialWorldMonitorAppRuntime()) return null;
   const user = clerkInstance?.user;
   if (!user) return null;
   const plan = (user.publicMetadata as Record<string, unknown>)?.plan;
@@ -818,6 +824,7 @@ export function getCurrentClerkUser(): { id: string; name: string; email: string
  * returned detacher works whether the SDK ever loads or not.
  */
 export function subscribeClerk(callback: () => void): () => void {
+  if (!isOfficialWorldMonitorAppRuntime()) return () => {};
   if (clerkInstance) return clerkInstance.addListener(callback);
   const handle = { detached: false };
   pendingSubscriberDetachers.set(callback, handle);
@@ -909,6 +916,7 @@ export function mountUserButton(
   el: HTMLDivElement,
   actions: UserButtonMenuActions = {},
 ): () => void {
+  if (!isOfficialWorldMonitorAppRuntime()) return () => {};
   if (!clerkInstance) {
     // Deferred-load path: the avatar widget asked to mount before Clerk
     // finished its idle-callback load. Trigger an immediate load and

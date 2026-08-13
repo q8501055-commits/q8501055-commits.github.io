@@ -77,6 +77,7 @@ function extractOpen() {
     'track',
     'isMobileDevice',
     'overlayHistory',
+    'isOfficialWorldMonitorAppRuntime',
     `${js}\nreturn __UnifiedSettingsOpenHarness;`,
   );
 }
@@ -96,6 +97,7 @@ const Harness = extractOpen()(
   () => {},
   () => false,
   { open() {}, replace() {} },
+  () => true,
 );
 
 /**

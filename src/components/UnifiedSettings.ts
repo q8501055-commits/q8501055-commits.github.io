@@ -1,5 +1,5 @@
 import { CANONICAL_FEEDS, INTEL_SOURCES, SOURCE_REGION_MAP } from '@/config/feeds';
-import { WEB_APP_ORIGIN } from '@/config/web-origin';
+import { WEB_APP_ORIGIN, isOfficialWorldMonitorAppRuntime } from '@/config/web-origin';
 import { openExternalUrl } from '@/services/external-navigation';
 import { THEATER_PRESETS, getTheaterPreset, getTheaterPresetEnableList, resolveTheaterPresetSources, type TheaterPreset } from '@/config/theater-presets';
 import {
@@ -507,7 +507,12 @@ export class UnifiedSettings {
 
   public open(tab?: TabId, replaceOverlayId?: OverlayId): void {
     const requestedTab = tab ?? this.activeTab;
-    this.activeTab = requestedTab === 'mcp-clients' && !hasFeature('mcpAccess')
+    const requestedCommercialTab = requestedTab === 'billing'
+      || requestedTab === 'api-keys'
+      || requestedTab === 'mcp-clients'
+      || requestedTab === 'notifications';
+    this.activeTab = (!isOfficialWorldMonitorAppRuntime() && requestedCommercialTab)
+      || (requestedTab === 'mcp-clients' && !hasFeature('mcpAccess'))
       ? 'settings'
       : requestedTab;
     this.resetPanelDraft();
@@ -733,24 +738,27 @@ export class UnifiedSettings {
     this.notifCleanup = null;
     this.pendingNotifs = null;
 
-    const isSignedIn = !this.config.isDesktopApp && (getAuthState().user !== null);
+    const showCommercialAccountUi = isOfficialWorldMonitorAppRuntime();
+    const isSignedIn = showCommercialAccountUi
+      && !this.config.isDesktopApp
+      && (getAuthState().user !== null);
     const prefs = renderPreferences({
       isDesktopApp: this.config.isDesktopApp,
       onMapProviderChange: this.config.onMapProviderChange,
       isSignedIn,
     });
-    const showNotificationsTab = !this.config.isDesktopApp;
+    const showNotificationsTab = showCommercialAccountUi && !this.config.isDesktopApp;
     const notifs = showNotificationsTab
       ? renderNotificationsSettings({ isSignedIn })
       : null;
-    const showMcpClientsTab = hasFeature('mcpAccess');
+    const showMcpClientsTab = showCommercialAccountUi && hasFeature('mcpAccess');
     const availableTabs: TabId[] = [
       'settings',
       ...(isSignedIn ? ['billing' as const] : []),
       'panels',
       'sources',
       ...(showNotificationsTab ? ['notifications' as const] : []),
-      'api-keys',
+      ...(showCommercialAccountUi ? ['api-keys' as const] : []),
       ...(showMcpClientsTab ? ['mcp-clients' as const] : []),
     ];
     this.activeTab = normalizeSettingsTab(this.activeTab, availableTabs);
@@ -761,15 +769,15 @@ export class UnifiedSettings {
       <div class="modal unified-settings-modal">
         <div class="modal-header">
           <span class="modal-title">${t('header.settings')}</span>
-          <button class="modal-close unified-settings-close" aria-label="Close">\u00d7</button>
+          <button class="modal-close unified-settings-close" aria-label="${t('common.close')}">\u00d7</button>
         </div>
-        <div class="unified-settings-tabs" role="tablist" aria-label="Settings">
+        <div class="unified-settings-tabs" role="tablist" aria-label="${t('header.settings')}">
           <button class="${tabClass('settings')}" tabindex="${this.activeTab === 'settings' ? 0 : -1}" data-tab="settings" role="tab" aria-selected="${this.activeTab === 'settings'}" id="us-tab-settings" aria-controls="us-tab-panel-settings">${t('header.tabSettings')}</button>
           ${isSignedIn ? `<button class="${tabClass('billing')}" tabindex="${this.activeTab === 'billing' ? 0 : -1}" data-tab="billing" role="tab" aria-selected="${this.activeTab === 'billing'}" id="us-tab-billing" aria-controls="us-tab-panel-billing">Plan &amp; billing</button>` : ''}
           <button class="${tabClass('panels')}" tabindex="${this.activeTab === 'panels' ? 0 : -1}" data-tab="panels" role="tab" aria-selected="${this.activeTab === 'panels'}" id="us-tab-panels" aria-controls="us-tab-panel-panels">${t('header.tabPanels')}</button>
           <button class="${tabClass('sources')}" tabindex="${this.activeTab === 'sources' ? 0 : -1}" data-tab="sources" role="tab" aria-selected="${this.activeTab === 'sources'}" id="us-tab-sources" aria-controls="us-tab-panel-sources">${t('header.tabSources')}</button>
           ${showNotificationsTab ? `<button class="${tabClass('notifications')}" tabindex="${this.activeTab === 'notifications' ? 0 : -1}" data-tab="notifications" role="tab" aria-selected="${this.activeTab === 'notifications'}" id="us-tab-notifications" aria-controls="us-tab-panel-notifications">${t('header.tabNotifications')}</button>` : ''}
-          <button class="${tabClass('api-keys')}" tabindex="${this.activeTab === 'api-keys' ? 0 : -1}" data-tab="api-keys" role="tab" aria-selected="${this.activeTab === 'api-keys'}" id="us-tab-api-keys" aria-controls="us-tab-panel-api-keys">API Keys <span class="panel-pro-badge">PRO</span></button>
+          ${showCommercialAccountUi ? `<button class="${tabClass('api-keys')}" tabindex="${this.activeTab === 'api-keys' ? 0 : -1}" data-tab="api-keys" role="tab" aria-selected="${this.activeTab === 'api-keys'}" id="us-tab-api-keys" aria-controls="us-tab-panel-api-keys">API Keys <span class="panel-pro-badge">PRO</span></button>` : ''}
           ${showMcpClientsTab ? `<button class="${tabClass('mcp-clients')}" tabindex="${this.activeTab === 'mcp-clients' ? 0 : -1}" data-tab="mcp-clients" role="tab" aria-selected="${this.activeTab === 'mcp-clients'}" id="us-tab-mcp-clients" aria-controls="us-tab-panel-mcp-clients">MCP Clients <span class="panel-pro-badge">PRO</span></button>` : ''}
         </div>
         <div class="unified-settings-tab-panel${this.activeTab === 'settings' ? ' active' : ''}" data-panel-id="settings" id="us-tab-panel-settings" role="tabpanel" aria-labelledby="us-tab-settings">
@@ -825,9 +833,9 @@ export class UnifiedSettings {
           ${notifs.html}
         </div>
         ` : ''}
-        <div class="unified-settings-tab-panel${this.activeTab === 'api-keys' ? ' active' : ''}" data-panel-id="api-keys" id="us-tab-panel-api-keys" role="tabpanel" aria-labelledby="us-tab-api-keys">
+        ${showCommercialAccountUi ? `<div class="unified-settings-tab-panel${this.activeTab === 'api-keys' ? ' active' : ''}" data-panel-id="api-keys" id="us-tab-panel-api-keys" role="tabpanel" aria-labelledby="us-tab-api-keys">
           ${this.renderApiKeysContent()}
-        </div>
+        </div>` : ''}
         ${showMcpClientsTab ? `
         <div class="unified-settings-tab-panel${this.activeTab === 'mcp-clients' ? ' active' : ''}" data-panel-id="mcp-clients" id="us-tab-panel-mcp-clients" role="tabpanel" aria-labelledby="us-tab-mcp-clients">
           ${this.renderMcpClientsContent()}
@@ -1135,7 +1143,7 @@ export class UnifiedSettings {
       // collapse to getEffectivePanelConfig's disabled synthetic fallback.
       const resolvedPanel = ALL_PANELS[key] ? getEffectivePanelConfig(key, SITE_VARIANT) : panel;
       const entitled = isPanelEntitled(key, resolvedPanel, pro);
-      const locked = !entitled;
+      const locked = isOfficialWorldMonitorAppRuntime() && !entitled;
       const changed = !locked && this.isPanelDraftChanged(key, panel, savedSettings);
       const displayName = this.config.getLocalizedPanelName(key, resolvedPanel.name ?? panel.name);
       const a11yState = getPanelToggleA11yState(locked, panel.enabled, displayName);
@@ -1146,7 +1154,7 @@ export class UnifiedSettings {
           <button type="button" class="panel-toggle-item ${panel.enabled && !locked ? 'active' : ''}${changed ? ' changed' : ''}${locked ? ' pro-locked' : ''}" data-panel="${escapeHtml(key)}" ${a11yState.ariaPressed === null ? '' : `aria-pressed="${a11yState.ariaPressed}"`} ${a11yState.ariaLabel === null ? '' : `aria-label="${escapeHtml(a11yState.ariaLabel)}"`} ${locked ? 'data-pro-locked="1"' : ''}>
             <div class="panel-toggle-checkbox" aria-hidden="true">${panel.enabled && !locked ? '\u2713' : ''}${locked ? '\uD83D\uDD12' : ''}</div>
             <span class="panel-toggle-label">${escapeHtml(displayName)}</span>
-            ${(locked || resolvedPanel.premium) ? '<span class="panel-toggle-pro-badge" aria-hidden="true">PRO</span>' : ''}
+            ${isOfficialWorldMonitorAppRuntime() && (locked || resolvedPanel.premium) ? '<span class="panel-toggle-pro-badge" aria-hidden="true">PRO</span>' : ''}
           </button>
           ${supportsPanelFontScale ? `<label class="panel-font-scale-control">
             <span>${escapeHtml(panelFontScaleLabel)}</span>

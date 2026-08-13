@@ -6,7 +6,11 @@
  * controlled so each access path can be replayed deterministically.
  */
 
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+
+beforeAll(() => {
+  window.location.href = 'https://worldmonitor.app/';
+});
 
 type Session = import('@/services/auth-state').AuthSession;
 
