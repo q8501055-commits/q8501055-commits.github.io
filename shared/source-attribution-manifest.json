@@ -1125,6 +1125,9 @@
           "path": "api/mcp/downstream.ts"
         },
         {
+          "path": "api/selfhost-gateway.js"
+        },
+        {
           "path": "scripts/ais-relay.cjs"
         },
         {
@@ -6926,6 +6929,9 @@
         },
         {
           "path": "api/reverse-geocode.js"
+        },
+        {
+          "path": "api/selfhost-gateway.js"
         },
         {
           "path": "api/story.js"

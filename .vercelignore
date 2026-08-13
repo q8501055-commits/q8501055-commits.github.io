@@ -24,3 +24,11 @@ target/
 # node:test suite (production env + Sentry) on every request (WORLDMONITOR-VD).
 # Guarded by tests/deploy-config.test.mjs.
 api/**/*.test.mjs
+
+# This fork targets Vercel Hobby. Vercel maps every deployable file under
+# api/ to a separate Function and the free plan allows only 12 Functions for
+# direct (non-framework) APIs. Keep one tightly-scoped, read-only catch-all
+# gateway and exclude the upstream project's full production API fleet.
+api/**
+!api/
+!api/selfhost-gateway.js

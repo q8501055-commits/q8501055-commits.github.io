@@ -14,6 +14,7 @@ import { createCircuitBreaker } from '@/utils';
 import { isFeatureAvailable } from '../runtime-config';
 import { getHydratedData } from '@/services/bootstrap';
 import { TradeServiceClient } from '@/services/generated-rpc-clients';
+import { isOfficialWorldMonitorAppRuntime } from '@/config/web-origin';
 
 // Re-export types for consumers
 export type { TradeRestriction, TariffDataPoint, EffectiveTariffRate, TradeFlowRecord, TradeBarrier, CustomsRevenueMonth, ComtradeFlowRecord };
@@ -142,6 +143,9 @@ export async function fetchTradeRestrictions(countries: string[] = [], limit = 5
 
 export async function fetchTariffTrends(reportingCountry: string, partnerCountry: string, productSector = '', years = 10): Promise<GetTariffTrendsResponse> {
   if (!isFeatureAvailable('wtoTrade')) return emptyTariffs;
+  // The anonymous self-host gateway deliberately never forwards premium
+  // credentials. Avoid a guaranteed 401 and leave this optional tab hidden.
+  if (!isOfficialWorldMonitorAppRuntime()) return emptyTariffs;
   // /pro live-preview iframe: no Clerk session → guaranteed 401 → breaker
   // would fall through to emptyTariffs anyway. Short-circuit to silence the
   // console noise this path causes on the embedding /pro page.
@@ -191,6 +195,9 @@ export async function fetchCustomsRevenue(): Promise<GetCustomsRevenueResponse> 
 }
 
 export async function fetchComtradeFlows(): Promise<ListComtradeFlowsResponse> {
+  // Comtrade is a premium upstream RPC. Self-hosted browsers have no Clerk
+  // account surface, so fail closed without spinning a breaker or retry loop.
+  if (!isOfficialWorldMonitorAppRuntime()) return emptyComtrade;
   // /pro live-preview iframe: see fetchTariffTrends comment above.
   if (IS_EMBEDDED_PREVIEW) return emptyComtrade;
   invalidatePremiumBreakersIfIdentityChanged();
